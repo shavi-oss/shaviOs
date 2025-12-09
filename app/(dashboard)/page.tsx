@@ -13,19 +13,64 @@ import {
 import { GlassCard, GlassCardHeader, GlassCardContent } from "@/components/ui/glass-card";
 import { DraggableGrid, DashboardWidget } from "@/components/dashboard/draggable-grid";
 import { DashboardCustomizer } from "@/components/settings/dashboard-customizer";
+import { createClient } from "@/lib/supabase/client";
+import { useEffect, useState } from "react";
 
 export default function DashboardPage() {
     // Mock data - will be replaced with real data from API
-    const stats = {
-        totalLeads: 245,
-        newLeadsToday: 12,
-        totalStudents: 1834,
-        activeStudents: 1654,
-        totalRevenue: 2450000,
-        revenueThisMonth: 345000,
-        pendingTasks: 23,
-        completedTasksToday: 8,
-    };
+    const [stats, setStats] = useState({
+        totalLeads: 0,
+        newLeadsToday: 0,
+        totalStudents: 0,
+        activeStudents: 0,
+        totalRevenue: 0,
+        revenueThisMonth: 0,
+        pendingTasks: 0,
+        completedTasksToday: 0,
+    });
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        async function fetchStats() {
+            try {
+                const supabase = createClient();
+
+                // Fetch Leads
+                const { count: totalLeads } = await supabase.from('leads').select('*', { count: 'exact', head: true });
+
+                // Fetch Students
+                const { count: totalStudents } = await supabase.from('students').select('*', { count: 'exact', head: true });
+                const { count: activeStudents } = await supabase.from('students').select('*', { count: 'exact', head: true }).eq('status', 'active');
+
+                // Fetch Deals (Potential Revenue) or Invoices (Real Revenue)
+                // Let's use Invoices for revenue
+                const { data: invoices } = await supabase.from('invoices').select('amount, status, created_at');
+                const totalRevenue = invoices?.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.amount, 0) || 0;
+
+                const now = new Date();
+                const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+                const revenueThisMonth = invoices
+                    ?.filter(i => i.status === 'paid' && i.created_at >= firstDayOfMonth)
+                    .reduce((sum, i) => sum + i.amount, 0) || 0;
+
+                setStats({
+                    totalLeads: totalLeads || 0,
+                    newLeadsToday: 0, // Requires date filtering on leads
+                    totalStudents: totalStudents || 0,
+                    activeStudents: activeStudents || 0,
+                    totalRevenue,
+                    revenueThisMonth,
+                    pendingTasks: 5, // Mock for now
+                    completedTasksToday: 2, // Mock for now
+                });
+            } catch (error) {
+                console.error('Error fetching dashboard stats:', error);
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchStats();
+    }, []);
 
     // Define draggable widgets
     const statWidgets: DashboardWidget[] = [
@@ -36,9 +81,9 @@ export default function DashboardPage() {
             component: (
                 <StatCard
                     title="إجمالي العملاء المحتملين"
-                    value={stats.totalLeads}
+                    value={loading ? "..." : stats.totalLeads}
                     icon={Users}
-                    description={`${stats.newLeadsToday} عميل جديد اليوم`}
+                    description="في النظام"
                     trend={{ value: 12.5, isPositive: true }}
                 />
             ),
@@ -50,7 +95,7 @@ export default function DashboardPage() {
             component: (
                 <StatCard
                     title="الطلاب النشطون"
-                    value={stats.activeStudents}
+                    value={loading ? "..." : stats.activeStudents}
                     icon={GraduationCap}
                     description={`من ${stats.totalStudents} طالب إجمالي`}
                     trend={{ value: 5.2, isPositive: true }}
@@ -64,9 +109,9 @@ export default function DashboardPage() {
             component: (
                 <StatCard
                     title="الإيرادات هذا الشهر"
-                    value={`${(stats.revenueThisMonth / 1000).toFixed(0)}K جنيه`}
+                    value={loading ? "..." : `${(stats.revenueThisMonth).toLocaleString()} ج.م`}
                     icon={DollarSign}
-                    description={`من ${(stats.totalRevenue / 1000).toFixed(0)}K إجمالي`}
+                    description={`من ${stats.totalRevenue.toLocaleString()} إجمالي`}
                     trend={{ value: 8.3, isPositive: true }}
                 />
             ),
@@ -151,10 +196,10 @@ export default function DashboardPage() {
                                     </div>
                                     <span
                                         className={`text-xs px-2 py-1 rounded ${task.priority === "high"
-                                                ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                                                : task.priority === "medium"
-                                                    ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-                                                    : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                            : task.priority === "medium"
+                                                ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                                                : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                                             }`}
                                     >
                                         {task.priority === "high" ? "عاجل" : task.priority === "medium" ? "متوسط" : "عادي"}

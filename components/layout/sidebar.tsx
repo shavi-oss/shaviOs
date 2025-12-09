@@ -30,6 +30,7 @@ const navigationItems = [
     { name: "الطلاب", href: "/customer-success/students", icon: GraduationCap },
     { name: "المالية", href: "/finance", icon: DollarSign },
     { name: "الموارد البشرية", href: "/hr", icon: Users },
+    { name: "المدربين", href: "/trainers", icon: Briefcase },
     { name: "لوحة التقنية", href: "/tech-panel", icon: Wrench },
 ];
 

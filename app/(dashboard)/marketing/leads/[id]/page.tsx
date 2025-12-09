@@ -92,13 +92,44 @@ export default function LeadDetailPage() {
                 .order('created_at', { ascending: false });
 
             if (error) {
-                // Table might not exist yet
                 console.log('Activities table not available');
                 return;
             }
             setActivities(data || []);
         } catch (error) {
             console.error('Error fetching activities:', error);
+        }
+    }
+
+    const [newActivity, setNewActivity] = useState({ type: 'note', description: '' });
+    const [submittingActivity, setSubmittingActivity] = useState(false);
+
+    async function handleAddActivity(e: React.FormEvent) {
+        e.preventDefault();
+        setSubmittingActivity(true);
+
+        try {
+            const response = await fetch(`/api/marketing/leads/${leadId}/activities`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newActivity),
+            });
+
+            if (!response.ok) throw new Error('Failed to add activity');
+
+            const activity = await response.json();
+            setActivities([activity, ...activities]);
+            setNewActivity({ type: 'note', description: '' });
+
+            // Update last contact locally
+            if (lead) {
+                setLead({ ...lead, last_contact: new Date().toISOString() });
+            }
+        } catch (error) {
+            console.error('Error adding activity:', error);
+            alert('فشل في إضافة النشاط');
+        } finally {
+            setSubmittingActivity(false);
         }
     }
 
@@ -333,6 +364,43 @@ export default function LeadDetailPage() {
                     {/* Activity Timeline */}
                     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
                         <h2 className="text-xl font-bold mb-4">الأنشطة</h2>
+
+                        {/* Add Activity Form */}
+                        <form onSubmit={handleAddActivity} className="mb-6 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                            <h3 className="text-sm font-semibold mb-3">تسجيل نشاط جديد</h3>
+                            <div className="flex gap-4 mb-3">
+                                <div className="flex-1">
+                                    <select
+                                        value={newActivity.type}
+                                        onChange={(e) => setNewActivity({ ...newActivity, type: e.target.value })}
+                                        className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"
+                                    >
+                                        <option value="note">ملاحظة</option>
+                                        <option value="call">مكالمة</option>
+                                        <option value="email">بريد إلكتروني</option>
+                                        <option value="meeting">اجتماع</option>
+                                    </select>
+                                </div>
+                                <div className="flex-[3]">
+                                    <input
+                                        type="text"
+                                        placeholder="تفاصيل النشاط..."
+                                        value={newActivity.description}
+                                        onChange={(e) => setNewActivity({ ...newActivity, description: e.target.value })}
+                                        className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"
+                                        required
+                                    />
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={submittingActivity}
+                                    className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm disabled:opacity-50"
+                                >
+                                    {submittingActivity ? 'جاري الإضافة...' : 'إضافة'}
+                                </button>
+                            </div>
+                        </form>
+
                         {activities.length === 0 ? (
                             <p className="text-center text-gray-500 py-8">لا توجد أنشطة بعد</p>
                         ) : (
