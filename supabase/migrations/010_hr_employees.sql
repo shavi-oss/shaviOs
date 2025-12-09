@@ -11,7 +11,7 @@
 
 CREATE TABLE IF NOT EXISTS employees (
     -- Primary Key
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     
     -- Personal Information
     first_name TEXT NOT NULL,

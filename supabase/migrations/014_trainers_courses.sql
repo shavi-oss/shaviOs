@@ -10,7 +10,7 @@
 -- ================================================================
 
 CREATE TABLE IF NOT EXISTS courses (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title TEXT NOT NULL,
     description TEXT,
     code TEXT UNIQUE NOT NULL, -- e.g., 'WEB-101'
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS courses (
 -- ================================================================
 
 CREATE TABLE IF NOT EXISTS course_sessions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     course_id UUID NOT NULL REFERENCES courses(id),
     trainer_id UUID NOT NULL REFERENCES employees(id), -- Trainers are employees in 'trainers' dept
     
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS course_sessions (
 -- ================================================================
 
 CREATE TABLE IF NOT EXISTS enrollments (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     session_id UUID NOT NULL REFERENCES course_sessions(id),
     student_id UUID NOT NULL REFERENCES students(id),
     

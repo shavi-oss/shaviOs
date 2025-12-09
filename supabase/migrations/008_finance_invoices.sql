@@ -11,7 +11,7 @@
 
 CREATE TABLE IF NOT EXISTS invoices (
     -- Primary Key
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     
     -- Invoice Details
     invoice_number SERIAL, -- Auto-incrementing human readable number

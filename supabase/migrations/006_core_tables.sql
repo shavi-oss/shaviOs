@@ -4,8 +4,8 @@
 -- Created: 2025-12-08
 -- ================================================================
 
--- Enable UUID extension if not already enabled
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- Enable pgcrypto if needed, but we will use gen_random_uuid() which is built-in for PG 13+
+-- CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ================================================================
 -- TABLE: leads
@@ -14,7 +14,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE TABLE IF NOT EXISTS leads (
     -- Primary Key
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     
     -- Contact Information
     first_name TEXT NOT NULL,
@@ -57,7 +57,7 @@ CREATE INDEX IF NOT EXISTS idx_leads_created_at ON leads(created_at DESC);
 
 CREATE TABLE IF NOT EXISTS lead_activities (
     -- Primary Key
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     
     -- Foreign Key
     lead_id UUID NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
@@ -82,7 +82,7 @@ CREATE INDEX IF NOT EXISTS idx_lead_activities_created_at ON lead_activities(cre
 
 CREATE TABLE IF NOT EXISTS students (
     -- Primary Key
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     
     -- Personal Information
     full_name TEXT NOT NULL,
@@ -113,7 +113,7 @@ CREATE INDEX IF NOT EXISTS idx_students_enrollment_date ON students(enrollment_d
 
 CREATE TABLE IF NOT EXISTS support_tickets (
     -- Primary Key
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     
     -- Ticket Information
     title TEXT NOT NULL,

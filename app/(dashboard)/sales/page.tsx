@@ -107,6 +107,15 @@ export default function SalesDashboard() {
                         تحليل ومتابعة خط مبيعات الشركة
                     </p>
                 </button>
+                <button
+                    onClick={() => router.push('/sales/commissions')}
+                    className="p-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-primary transition-colors text-right"
+                >
+                    <h3 className="text-lg font-semibold mb-2">العمولات والمكافآت</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                        متابعة استحقاقات وصرف عمولات الموظفين
+                    </p>
+                </button>
             </div>
         </div>
     );
