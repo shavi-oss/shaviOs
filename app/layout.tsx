@@ -28,6 +28,7 @@ export default function RootLayout({
         <html lang="ar" dir="rtl" suppressHydrationWarning data-scroll-behavior="smooth">
             <body
                 className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+                suppressHydrationWarning
             >
                 <ThemeProvider>
                     {children}
