@@ -194,106 +194,108 @@ export default function LeadsListPage() {
             </div>
 
             {/* Leads Table */}
-            {filteredLeads.length === 0 ? (
-                <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                    <UserPlus className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                        لا توجد عملاء محتملين
-                    </h3>
-                    <p className="text-gray-600 dark:text-gray-400">
-                        {searchTerm ? 'لم يتم العثور على نتائج مطابقة' : 'ابدأ بإضافة عملاء محتملين جدد'}
-                    </p>
-                </div>
-            ) : (
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gray-50 dark:bg-gray-900">
-                                <tr>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">الاسم</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">معلومات الاتصال</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">الشركة</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">النقاط</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">الحالة</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">المصدر</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">التاريخ</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                                {filteredLeads.map((lead) => (
-                                    <tr
-                                        key={lead.id}
-                                        onClick={() => router.push(`/marketing/leads/${lead.id}`)}
-                                        className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors cursor-pointer"
-                                    >
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex-shrink-0 h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
-                                                    <span className="text-primary font-medium">
-                                                        {lead.first_name[0]}{lead.last_name[0]}
+            {
+                filteredLeads.length === 0 ? (
+                    <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <UserPlus className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                            لا توجد عملاء محتملين
+                        </h3>
+                        <p className="text-gray-600 dark:text-gray-400">
+                            {searchTerm ? 'لم يتم العثور على نتائج مطابقة' : 'ابدأ بإضافة عملاء محتملين جدد'}
+                        </p>
+                    </div>
+                ) : (
+                    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50 dark:bg-gray-900">
+                                    <tr>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">الاسم</th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">معلومات الاتصال</th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">الشركة</th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">النقاط</th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">الحالة</th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">المصدر</th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">التاريخ</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                    {filteredLeads.map((lead) => (
+                                        <tr
+                                            key={lead.id}
+                                            onClick={() => router.push(`/marketing/leads/${lead.id}`)}
+                                            className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors cursor-pointer"
+                                        >
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex-shrink-0 h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
+                                                        <span className="text-primary font-medium">
+                                                            {lead.first_name[0]}{lead.last_name[0]}
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                                            {lead.first_name} {lead.last_name}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="space-y-1">
+                                                    {lead.email && (
+                                                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                                                            <Mail className="w-4 h-4" />
+                                                            {lead.email}
+                                                        </div>
+                                                    )}
+                                                    {lead.phone && (
+                                                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                                                            <Phone className="w-4 h-4" />
+                                                            {lead.phone}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                {lead.company && (
+                                                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                                                        <Building2 className="w-4 h-4" />
+                                                        {lead.company}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center gap-2">
+                                                    {getTemperatureIcon(lead.temperature)}
+                                                    <span className="text-sm font-medium">
+                                                        {lead.total_score || 0}
                                                     </span>
                                                 </div>
-                                                <div>
-                                                    <div className="text-sm font-medium text-gray-900 dark:text-white">
-                                                        {lead.first_name} {lead.last_name}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="space-y-1">
-                                                {lead.email && (
-                                                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                                        <Mail className="w-4 h-4" />
-                                                        {lead.email}
-                                                    </div>
-                                                )}
-                                                {lead.phone && (
-                                                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                                        <Phone className="w-4 h-4" />
-                                                        {lead.phone}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            {lead.company && (
-                                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                                    <Building2 className="w-4 h-4" />
-                                                    {lead.company}
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center gap-2">
-                                                {getTemperatureIcon(lead.temperature)}
-                                                <span className="text-sm font-medium">
-                                                    {lead.total_score || 0}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(lead.status)}`}>
+                                                    {lead.status === 'new' && 'جديد'}
+                                                    {lead.status === 'contacted' && 'تم التواصل'}
+                                                    {lead.status === 'qualified' && 'مؤهل'}
+                                                    {lead.status === 'converted' && 'محول'}
+                                                    {lead.status === 'lost' && 'مفقود'}
                                                 </span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(lead.status)}`}>
-                                                {lead.status === 'new' && 'جديد'}
-                                                {lead.status === 'contacted' && 'تم التواصل'}
-                                                {lead.status === 'qualified' && 'مؤهل'}
-                                                {lead.status === 'converted' && 'محول'}
-                                                {lead.status === 'lost' && 'مفقود'}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                                            {lead.source}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                                            {new Date(lead.created_at).toLocaleDateString('ar-EG')}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                                                {lead.source}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                                                {new Date(lead.created_at).toLocaleDateString('ar-EG')}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }
