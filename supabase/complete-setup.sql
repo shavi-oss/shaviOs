@@ -64,8 +64,8 @@ CREATE TABLE IF NOT EXISTS leads (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_leads_status ON leads(status);
-CREATE INDEX idx_leads_email ON leads(email);
+CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
+CREATE INDEX IF NOT EXISTS idx_leads_email ON leads(email);
 
 ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
 
@@ -112,9 +112,9 @@ CREATE TABLE IF NOT EXISTS deals (
     closed_at TIMESTAMPTZ
 );
 
-CREATE INDEX idx_deals_owner ON deals(owner_id);
-CREATE INDEX idx_deals_stage ON deals(stage_id);
-CREATE INDEX idx_deals_status ON deals(status);
+CREATE INDEX IF NOT EXISTS idx_deals_owner ON deals(owner_id);
+CREATE INDEX IF NOT EXISTS idx_deals_stage ON deals(stage_id);
+CREATE INDEX IF NOT EXISTS idx_deals_status ON deals(status);
 
 ALTER TABLE deals ENABLE ROW LEVEL SECURITY;
 
@@ -162,9 +162,9 @@ CREATE TABLE IF NOT EXISTS leave_requests (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_employees_department ON employees(department);
-CREATE INDEX idx_employees_status ON employees(status);
-CREATE INDEX idx_leave_employee ON leave_requests(employee_id);
+CREATE INDEX IF NOT EXISTS idx_employees_department ON employees(department);
+CREATE INDEX IF NOT EXISTS idx_employees_status ON employees(status);
+CREATE INDEX IF NOT EXISTS idx_leave_employee ON leave_requests(employee_id);
 
 ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
 ALTER TABLE leave_requests ENABLE ROW LEVEL SECURITY;
@@ -225,9 +225,9 @@ CREATE TABLE IF NOT EXISTS expenses (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_invoices_status ON invoices(status);
-CREATE INDEX idx_invoices_customer ON invoices(customer_email);
-CREATE INDEX idx_expenses_category ON expenses(category);
+CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
+CREATE INDEX IF NOT EXISTS idx_invoices_customer ON invoices(customer_email);
+CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category);
 
 ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invoice_items ENABLE ROW LEVEL SECURITY;
@@ -285,9 +285,9 @@ CREATE TABLE IF NOT EXISTS assignments (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_trainers_email ON trainers(email);
-CREATE INDEX idx_sessions_trainer ON training_sessions(trainer_id);
-CREATE INDEX idx_sessions_date ON training_sessions(session_date);
+CREATE INDEX IF NOT EXISTS idx_trainers_email ON trainers(email);
+CREATE INDEX IF NOT EXISTS idx_sessions_trainer ON training_sessions(trainer_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_date ON training_sessions(session_date);
 
 ALTER TABLE trainers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE training_sessions ENABLE ROW LEVEL SECURITY;
@@ -332,9 +332,9 @@ CREATE TABLE IF NOT EXISTS ticket_messages (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_tickets_status ON tickets(status);
-CREATE INDEX idx_tickets_assignee ON tickets(assignee_id);
-CREATE INDEX idx_tickets_priority ON tickets(priority);
+CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
+CREATE INDEX IF NOT EXISTS idx_tickets_assignee ON tickets(assignee_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_priority ON tickets(priority);
 
 ALTER TABLE tickets ENABLE ROW  LEVEL SECURITY;
 ALTER TABLE ticket_messages ENABLE ROW LEVEL SECURITY;
@@ -364,8 +364,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     completed_at TIMESTAMPTZ
 );
 
-CREATE INDEX idx_tasks_assignee ON tasks(assignee_id);
-CREATE INDEX idx_tasks_status ON tasks(status);
+CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON tasks(assignee_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 
 ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
 
