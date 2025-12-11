@@ -57,14 +57,40 @@ export async function middleware(request: NextRequest) {
             return NextResponse.redirect(url)
         }
 
-        // 3. Strict RBAC: Check for Admin Role
-        const role = user?.user_metadata?.role || 'user'
+        // 3. Strict RBAC: Check for Admin/Dev Role for Tech Panel
+        const role = user?.user_metadata?.role || 'user';
 
         if (role !== 'admin' && role !== 'developer') {
-            // Redirect unauthorized users to dashboard
             const url = request.nextUrl.clone()
-            url.pathname = '/dashboard' // or /unauthorized
+            url.pathname = '/dashboard'
             return NextResponse.redirect(url)
+        }
+    }
+
+    // 4. General Department Access Control
+    if (user) {
+        const role = user?.user_metadata?.role || 'user';
+        const currentPath = request.nextUrl.pathname;
+
+        // Map paths to allowed roles
+        // Admin, Developer, and Manager are generally trusted
+        const isSuperUser = ['admin', 'developer', 'manager'].includes(role);
+
+        if (!isSuperUser) {
+            if (currentPath.startsWith('/hr') && role !== 'hr') {
+                return NextResponse.redirect(new URL('/dashboard', request.url));
+            }
+            if (currentPath.startsWith('/finance') && role !== 'hr') { // HR handles payroll
+                return NextResponse.redirect(new URL('/dashboard', request.url));
+            }
+            if (currentPath.startsWith('/sales') && role !== 'sales') {
+                return NextResponse.redirect(new URL('/dashboard', request.url));
+            }
+            if (currentPath.startsWith('/operations') && role !== 'operations') {
+                // Trainers can see specific sub-routes, handled by generic 'operations' check? 
+                // For now, strict: only 'operations' role. Trainers might need /operations/trainers/me
+                return NextResponse.redirect(new URL('/dashboard', request.url));
+            }
         }
     }
 

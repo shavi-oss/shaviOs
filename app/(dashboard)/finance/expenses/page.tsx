@@ -1,247 +1,207 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { useState } from 'react';
 import {
-    Plus,
-    Search,
-    Filter,
-    Calendar,
     DollarSign,
-    Receipt,
-    Trash2,
-    Briefcase
+    Plus,
+    Download,
+    TrendingUp,
+    AlertTriangle,
+    PieChart
 } from 'lucide-react';
-
-interface Expense {
-    id: string;
-    description: string;
-    amount: number;
-    category: string;
-    date: string;
-    created_at: string;
-}
-
-const CATEGORIES = ['Rent', 'Salaries', 'Software', 'Marketing', 'Office Supplies', 'Utilities', 'Taxes', 'Other'];
+import Link from 'next/link';
 
 export default function ExpensesPage() {
-    const [expenses, setExpenses] = useState<Expense[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [showModal, setShowModal] = useState(false);
+    const [selectedCategory, setSelectedCategory] = useState('all');
 
-    // Form State
-    const [newItem, setNewItem] = useState({ description: '', amount: '', category: 'Other', date: new Date().toISOString().split('T')[0] });
+    const categories = [
+        { name: 'Salaries', amount: 850000, budget: 900000, color: 'bg-blue-500' },
+        { name: 'Rent', amount: 150000, budget: 150000, color: 'bg-purple-500' },
+        { name: 'Tools', amount: 85000, budget: 100000, color: 'bg-green-500' },
+        { name: 'Servers', amount: 180000, budget: 150000, color: 'bg-red-500' },
+        { name: 'Marketing', amount: 220000, budget: 200000, color: 'bg-yellow-500' },
+        { name: 'Subscriptions', amount: 95000, budget: 100000, color: 'bg-pink-500' },
+        { name: 'Suppliers', amount: 120000, budget: 150000, color: 'bg-orange-500' },
+        { name: 'Commissions', amount: 75000, budget: 80000, color: 'bg-teal-500' },
+        { name: 'Miscellaneous', amount: 25000, budget: 50000, color: 'bg-gray-500' }
+    ];
 
-    useEffect(() => {
-        fetchExpenses();
-    }, []);
+    const totalExpenses = categories.reduce((sum, cat) => sum + cat.amount, 0);
+    const totalBudget = categories.reduce((sum, cat) => sum + cat.budget, 0);
+    const overBudgetCategories = categories.filter(cat => cat.amount > cat.budget);
 
-    const fetchExpenses = async () => {
-        try {
-            const supabase = createClient();
-            const { data, error } = await supabase
-                .from('transactions')
-                .select('*')
-                .eq('type', 'expense')
-                .order('date', { ascending: false });
-
-            if (data) setExpenses(data);
-        } catch (error) {
-            console.error('Error fetching expenses:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleAddExpense = async (e: React.FormEvent) => {
-        e.preventDefault();
-        try {
-            const supabase = createClient();
-            const { error } = await supabase.from('transactions').insert({
-                type: 'expense',
-                description: newItem.description,
-                amount: parseFloat(newItem.amount),
-                category: newItem.category,
-                date: newItem.date,
-                currency: 'EGP'
-            });
-
-            if (error) throw error;
-
-            setShowModal(false);
-            setNewItem({ description: '', amount: '', category: 'Other', date: new Date().toISOString().split('T')[0] });
-            fetchExpenses();
-        } catch (error) {
-            console.error('Error adding expense:', error);
-            alert('Failed to add expense');
-        }
-    };
-
-    const handleDelete = async (id: string) => {
-        if (!confirm('Are you sure you want to delete this expense?')) return;
-
-        try {
-            const supabase = createClient();
-            await supabase.from('transactions').delete().eq('id', id);
-            fetchExpenses();
-        } catch (error) {
-            console.error('Error deleting:', error);
-        }
-    };
+    const recentExpenses = [
+        { id: '1', date: '2024-12-10', category: 'Servers', vendor: 'AWS Cloud Services', amount: 15000, status: 'approved' },
+        { id: '2', date: '2024-12-09', category: 'Marketing', vendor: 'Meta Ads', amount: 8500, status: 'approved' },
+        { id: '3', date: '2024-12-08', category: 'Tools', vendor: 'Adobe', amount: 4200, status: 'pending' },
+        { id: '4', date: '2024-12-07', category: 'Salaries', vendor: 'Payroll Dec', amount: 850000, status: 'approved' },
+        { id: '5', date: '2024-12-06', category: 'Subscriptions', vendor: 'GitHub Enterprise', amount: 2400, status: 'approved' }
+    ];
 
     return (
         <div className="p-6 space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {/* Header */}
+            <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold text-foreground">المصروفات</h1>
-                    <p className="text-muted-foreground mt-2">تتبع النفقات التشغيلية والفواتير</p>
+                    <h1 className="text-2xl font-bold flex items-center gap-2">
+                        <DollarSign className="w-6 h-6 text-primary" />
+                        Expenses Management
+                    </h1>
+                    <p className="text-gray-500 text-sm mt-1">Track and analyze company expenses</p>
                 </div>
-                <button
-                    onClick={() => setShowModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm"
-                >
-                    <Plus className="w-5 h-5" />
-                    <span>تسجيل مصروف</span>
-                </button>
-            </div>
-
-            {/* Expenses List */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-right">
-                        <thead>
-                            <tr className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-700 text-sm">
-                                <th className="py-4 px-6 font-medium text-gray-500">التاريخ</th>
-                                <th className="py-4 px-6 font-medium text-gray-500">البند</th>
-                                <th className="py-4 px-6 font-medium text-gray-500">التصنيف</th>
-                                <th className="py-4 px-6 font-medium text-gray-500">المبلغ</th>
-                                <th className="py-4 px-6 font-medium text-gray-500">إجراءات</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                            {loading ? (
-                                <tr>
-                                    <td colSpan={5} className="py-8 text-center text-gray-500">جاري التحميل...</td>
-                                </tr>
-                            ) : expenses.length === 0 ? (
-                                <tr>
-                                    <td colSpan={5} className="py-8 text-center text-gray-500">لا توجد مصروفات مسجلة</td>
-                                </tr>
-                            ) : (
-                                expenses.map(expense => (
-                                    <tr key={expense.id} className="group hover:bg-gray-50 dark:hover:bg-gray-900/30 transition-colors">
-                                        <td className="py-4 px-6 text-sm text-gray-600 dark:text-gray-400">
-                                            {new Date(expense.date).toLocaleDateString('ar-EG')}
-                                        </td>
-                                        <td className="py-4 px-6 font-medium text-gray-900 dark:text-gray-100">
-                                            {expense.description}
-                                        </td>
-                                        <td className="py-4 px-6">
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300">
-                                                {expense.category}
-                                            </span>
-                                        </td>
-                                        <td className="py-4 px-6 font-bold text-red-600">
-                                            -{expense.amount.toLocaleString()} EGP
-                                        </td>
-                                        <td className="py-4 px-6">
-                                            <button
-                                                onClick={() => handleDelete(expense.id)}
-                                                className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+                <div className="flex gap-2">
+                    <button className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-bold flex items-center gap-2">
+                        <Download className="w-4 h-4" /> Export
+                    </button>
+                    <Link href="/finance/expenses/new" className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90 flex items-center gap-2">
+                        <Plus className="w-4 h-4" /> Add Expense
+                    </Link>
                 </div>
             </div>
 
-            {/* Add Expense Modal */}
-            {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-bold flex items-center gap-2">
-                                <Receipt className="w-5 h-5" />
-                                تسجيل مصروف جديد
-                            </h3>
-                            <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            {/* Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 p-4 rounded-xl border border-orange-200 dark:border-orange-800">
+                    <div className="text-2xl font-black text-orange-600">${(totalExpenses / 1000).toFixed(0)}K</div>
+                    <div className="text-xs text-orange-700 dark:text-orange-400 font-medium mt-1">Total This Month</div>
+                </div>
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div className="text-2xl font-black text-gray-900 dark:text-white">${(totalBudget / 1000).toFixed(0)}K</div>
+                    <div className="text-xs text-gray-500 font-medium mt-1">Monthly Budget</div>
+                </div>
+                <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl border border-green-200 dark:border-green-800">
+                    <div className="text-2xl font-black text-green-600">{((totalExpenses / totalBudget) * 100).toFixed(0)}%</div>
+                    <div className="text-xs text-green-700 dark:text-green-400 font-medium mt-1">Budget Used</div>
+                </div>
+                <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-200 dark:border-red-800">
+                    <div className="text-2xl font-black text-red-600">{overBudgetCategories.length}</div>
+                    <div className="text-xs text-red-700 dark:text-red-400 font-medium mt-1">🚨 Over Budget</div>
+                </div>
+            </div>
+
+            {/* Alerts */}
+            {overBudgetCategories.length > 0 && (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                    <div className="flex items-start gap-2">
+                        <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5" />
+                        <div className="flex-1">
+                            <h3 className="font-bold text-red-800 dark:text-red-400">Budget Alerts</h3>
+                            <ul className="text-sm text-red-700 dark:text-red-300 mt-1 space-y-1">
+                                {overBudgetCategories.map((cat, idx) => (
+                                    <li key={idx}>
+                                        • <strong>{cat.name}</strong> exceeded budget by ${((cat.amount - cat.budget) / 1000).toFixed(0)}K
+                                        ({(((cat.amount - cat.budget) / cat.budget) * 100).toFixed(0)}% over)
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
-
-                        <form onSubmit={handleAddExpense} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-1">وصف المصروف</label>
-                                <input
-                                    required
-                                    type="text"
-                                    value={newItem.description}
-                                    onChange={e => setNewItem({ ...newItem, description: e.target.value })}
-                                    placeholder="مثال: إيجار المكتب"
-                                    className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">المبلغ (EGP)</label>
-                                    <input
-                                        required
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        value={newItem.amount}
-                                        onChange={e => setNewItem({ ...newItem, amount: e.target.value })}
-                                        className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">التاريخ</label>
-                                    <input
-                                        required
-                                        type="date"
-                                        value={newItem.date}
-                                        onChange={e => setNewItem({ ...newItem, date: e.target.value })}
-                                        className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-1">التصنيف</label>
-                                <select
-                                    value={newItem.category}
-                                    onChange={e => setNewItem({ ...newItem, category: e.target.value })}
-                                    className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
-                                >
-                                    {CATEGORIES.map(cat => (
-                                        <option key={cat} value={cat}>{cat}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="pt-4 flex justify-end gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowModal(false)}
-                                    className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg"
-                                >
-                                    إلغاء
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 text-sm font-medium"
-                                >
-                                    حفظ
-                                </button>
-                            </div>
-                        </form>
                     </div>
                 </div>
             )}
+
+            {/* Expense by Category */}
+            <div className="grid md:grid-cols-2 gap-6">
+                {/* Categories List */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                    <h2 className="text-lg font-bold mb-4">Expenses by Category</h2>
+                    <div className="space-y-3">
+                        {categories.map((cat, idx) => {
+                            const percentage = (cat.amount / cat.budget) * 100;
+                            const isOver = cat.amount > cat.budget;
+                            return (
+                                <div key={idx}>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{cat.name}</span>
+                                        <div className="text-right">
+                                            <span className="text-sm font-black text-gray-900 dark:text-white">
+                                                ${(cat.amount / 1000).toFixed(0)}K
+                                            </span>
+                                            <span className="text-xs text-gray-500 ml-2">
+                                                / ${(cat.budget / 1000).toFixed(0)}K
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                        <div
+                                            className={`h-full rounded-full ${isOver ? 'bg-red-500' : cat.color}`}
+                                            style={{ width: `${Math.min(percentage, 100)}%` }}
+                                        ></div>
+                                    </div>
+                                    {isOver && (
+                                        <div className="text-xs text-red-600 mt-1">⚠️ {percentage.toFixed(0)}% of budget</div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Pie Chart Visualization */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                    <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+                        <PieChart className="w-5 h-5 text-blue-500" />
+                        Category Distribution
+                    </h2>
+                    <div className="grid grid-cols-3 gap-2">
+                        {categories.map((cat, idx) => {
+                            const percentage = (cat.amount / totalExpenses) * 100;
+                            return (
+                                <div key={idx} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg text-center">
+                                    <div className={`w-3 h-3 ${cat.color} rounded-full mx-auto mb-1`}></div>
+                                    <div className="text-xs font-medium text-gray-600 dark:text-gray-400">{cat.name}</div>
+                                    <div className="text-sm font-black text-gray-900 dark:text-white">{percentage.toFixed(0)}%</div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+
+            {/* Recent Expenses */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                    <h2 className="text-lg font-bold">Recent Expenses</h2>
+                </div>
+                <table className="w-full">
+                    <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+                        <tr>
+                            <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase">Date</th>
+                            <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase">Category</th>
+                            <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase">Vendor</th>
+                            <th className="text-right py-3 px-4 text-xs font-bold text-gray-500 uppercase">Amount</th>
+                            <th className="text-center py-3 px-4 text-xs font-bold text-gray-500 uppercase">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {recentExpenses.map(expense => (
+                            <tr key={expense.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50">
+                                <td className="py-3 px-4 text-sm text-gray-600">
+                                    {new Date(expense.date).toLocaleDateString()}
+                                </td>
+                                <td className="py-3 px-4">
+                                    <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs font-bold">
+                                        {expense.category}
+                                    </span>
+                                </td>
+                                <td className="py-3 px-4 text-sm text-gray-900 dark:text-white font-medium">
+                                    {expense.vendor}
+                                </td>
+                                <td className="py-3 px-4 text-right text-lg font-black text-orange-600">
+                                    ${expense.amount.toLocaleString()}
+                                </td>
+                                <td className="py-3 px-4 text-center">
+                                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${expense.status === 'approved'
+                                            ? 'bg-green-100 text-green-700'
+                                            : 'bg-orange-100 text-orange-700'
+                                        }`}>
+                                        {expense.status}
+                                    </span>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 }

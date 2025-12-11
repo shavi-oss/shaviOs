@@ -1,284 +1,231 @@
 "use client";
 
-import { StatCard } from "@/components/dashboard/stat-card";
+import { useRouter } from 'next/navigation';
 import {
+    LayoutDashboard,
+    BarChart3,
+    Briefcase,
+    HeartHandshake,
     Users,
-    UserPlus,
-    GraduationCap,
-    DollarSign,
-    CheckCircle,
+    ClipboardList,
+    Wrench,
+    ArrowRight,
     TrendingUp,
-    Calendar,
-} from "lucide-react";
-import { GlassCard, GlassCardHeader, GlassCardContent } from "@/components/ui/glass-card";
-import { DraggableGrid, DashboardWidget } from "@/components/dashboard/draggable-grid";
-import { DashboardCustomizer } from "@/components/settings/dashboard-customizer";
-import { createClient } from "@/lib/supabase/client";
-import { useEffect, useState } from "react";
+    Shield,
+    Bell,
+    DollarSign
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
 
-export default function DashboardPage() {
-    // Mock data - will be replaced with real data from API
-    const [stats, setStats] = useState({
-        totalLeads: 0,
-        newLeadsToday: 0,
-        totalStudents: 0,
-        activeStudents: 0,
-        totalRevenue: 0,
-        revenueThisMonth: 0,
-        pendingTasks: 0,
-        completedTasksToday: 0,
-    });
+export default function DashboardLandingPage() {
+    const router = useRouter();
+    const [userRole, setUserRole] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        async function fetchStats() {
-            try {
-                const supabase = createClient();
-
-                // Fetch Leads
-                const { count: totalLeads } = await supabase.from('leads').select('*', { count: 'exact', head: true });
-
-                // Fetch Students
-                const { count: totalStudents } = await supabase.from('students').select('*', { count: 'exact', head: true });
-                const { count: activeStudents } = await supabase.from('students').select('*', { count: 'exact', head: true }).eq('status', 'active');
-
-                // Fetch Deals (Potential Revenue) or Invoices (Real Revenue)
-                // Let's use Invoices for revenue
-                const { data: invoices } = await supabase.from('invoices').select('amount, status, created_at');
-                const totalRevenue = invoices?.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.amount, 0) || 0;
-
-                const now = new Date();
-                const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-                const revenueThisMonth = invoices
-                    ?.filter(i => i.status === 'paid' && i.created_at >= firstDayOfMonth)
-                    .reduce((sum, i) => sum + i.amount, 0) || 0;
-
-                setStats({
-                    totalLeads: totalLeads || 0,
-                    newLeadsToday: 0, // Requires date filtering on leads
-                    totalStudents: totalStudents || 0,
-                    activeStudents: activeStudents || 0,
-                    totalRevenue,
-                    revenueThisMonth,
-                    pendingTasks: 5, // Mock for now
-                    completedTasksToday: 2, // Mock for now
-                });
-            } catch (error) {
-                console.error('Error fetching dashboard stats:', error);
-            } finally {
-                setLoading(false);
+        async function getUser() {
+            const supabase = createClient();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                setUserRole(user.user_metadata?.role || 'user');
+                // If user is just 'user' with no role, maybe show a "Contact Admin" state?
+                // For now, allow them to see the dashboard but links might be blocked by middleware if clicked.
             }
+            setLoading(false);
         }
-        fetchStats();
+        getUser();
     }, []);
 
-    // Define draggable widgets
-    const statWidgets: DashboardWidget[] = [
+    const modules = [
         {
-            id: "leads-stat",
-            title: "إجمالي العملاء المحتملين",
-            category: "إحصائيات",
-            component: (
-                <StatCard
-                    title="إجمالي العملاء المحتملين"
-                    value={loading ? "..." : stats.totalLeads}
-                    icon={Users}
-                    description="في النظام"
-                    trend={{ value: 12.5, isPositive: true }}
-                />
-            ),
+            title: "Marketing",
+            description: "Campaigns, Social, Ads",
+            icon: BarChart3,
+            href: "/marketing",
+            color: "bg-pink-600",
+            bg: "bg-pink-50 dark:bg-pink-900/20",
+            role: ['admin', 'manager', 'sales']
         },
         {
-            id: "students-stat",
-            title: "الطلاب النشطون",
-            category: "إحصائيات",
-            component: (
-                <StatCard
-                    title="الطلاب النشطون"
-                    value={loading ? "..." : stats.activeStudents}
-                    icon={GraduationCap}
-                    description={`من ${stats.totalStudents} طالب إجمالي`}
-                    trend={{ value: 5.2, isPositive: true }}
-                />
-            ),
+            title: "Sales CRM",
+            description: "Pipeline, Deals, Quotes",
+            icon: Briefcase,
+            href: "/sales",
+            color: "bg-purple-600",
+            bg: "bg-purple-50 dark:bg-purple-900/20",
+            role: ['admin', 'manager', 'sales']
         },
         {
-            id: "revenue-stat",
-            title: "الإيرادات هذا الشهر",
-            category: "إحصائيات",
-            component: (
-                <StatCard
-                    title="الإيرادات هذا الشهر"
-                    value={loading ? "..." : `${(stats.revenueThisMonth).toLocaleString()} ج.م`}
-                    icon={DollarSign}
-                    description={`من ${stats.totalRevenue.toLocaleString()} إجمالي`}
-                    trend={{ value: 8.3, isPositive: true }}
-                />
-            ),
+            title: "Customer Success",
+            description: "Tickets, Support, KB",
+            icon: HeartHandshake,
+            href: "/customer-success",
+            color: "bg-blue-600",
+            bg: "bg-blue-50 dark:bg-blue-900/20",
+            role: ['admin', 'manager', 'sales']
         },
         {
-            id: "tasks-stat",
-            title: "المهام المنجزة",
-            category: "إحصائيات",
-            component: (
-                <StatCard
-                    title="المهام المنجزة"
-                    value={stats.completedTasksToday}
-                    icon={CheckCircle}
-                    description={`${stats.pendingTasks} مهمة قيد الانتظار`}
-                    trend={{ value: 3.1, isPositive: false }}
-                />
-            ),
+            title: "Operations",
+            description: "Schedule, Trainers, Quality",
+            icon: ClipboardList,
+            href: "/operations",
+            color: "bg-indigo-600",
+            bg: "bg-indigo-50 dark:bg-indigo-900/20",
+            role: ['admin', 'manager', 'operations', 'trainer']
         },
+        {
+            title: "HR & Finance",
+            description: "Employees, Payroll, Invoices",
+            icon: Users,
+            href: "/hr",
+            color: "bg-orange-600",
+            bg: "bg-orange-50 dark:bg-orange-900/20",
+            role: ['admin', 'manager', 'hr']
+        },
+        {
+            title: "Tech Panel",
+            description: "System Settings, Logs, Roles",
+            icon: Wrench,
+            href: "/tech-panel",
+            color: "bg-gray-800",
+            bg: "bg-gray-100 dark:bg-gray-800",
+            role: ['admin', 'developer']
+        }
     ];
 
-    const contentWidgets: DashboardWidget[] = [
-        {
-            id: "recent-activity",
-            title: "النشاط الأخير",
-            category: "محتوى",
-            component: (
-                <GlassCard intensity="medium" hover className="h-full">
-                    <GlassCardHeader>
-                        <h2 className="text-lg font-semibold flex items-center gap-2">
-                            <TrendingUp className="w-5 h-5 text-primary" />
-                            النشاط الأخير
-                        </h2>
-                    </GlassCardHeader>
-                    <GlassCardContent>
-                        <div className="space-y-4">
-                            {[
-                                { type: "lead", text: "عميل جديد: أحمد محمد", time: "منذ 5 دقائق" },
-                                { type: "payment", text: "دفعة جديدة: 5,000 جنيه", time: "منذ 15 دقيقة" },
-                                { type: "student", text: "طالب جديد: سارة علي", time: "منذ 30 دقيقة" },
-                                { type: "session", text: "جلسة مكتملة: دورة البرمجة", time: "منذ ساعة" },
-                            ].map((activity, index) => (
-                                <div key={index} className="flex items-start gap-3 pb-3 border-b last:border-0">
-                                    <div className="w-2 h-2 bg-primary rounded-full mt-2" />
-                                    <div className="flex-1">
-                                        <p className="text-sm font-medium">{activity.text}</p>
-                                        <p className="text-xs text-muted-foreground">{activity.time}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </GlassCardContent>
-                </GlassCard>
-            ),
-        },
-        {
-            id: "today-tasks",
-            title: "مهام اليوم",
-            category: "محتوى",
-            component: (
-                <GlassCard intensity="medium" hover className="h-full">
-                    <GlassCardHeader>
-                        <h2 className="text-lg font-semibold flex items-center gap-2">
-                            <Calendar className="w-5 h-5 text-primary" />
-                            مهام اليوم
-                        </h2>
-                    </GlassCardHeader>
-                    <GlassCardContent>
-                        <div className="space-y-3">
-                            {[
-                                { title: "متابعة 3 عملاء جدد", time: "10:00 صباحاً", priority: "high" },
-                                { title: "اجتماع فريق المبيعات", time: "11:00 صباحاً", priority: "medium" },
-                                { title: "تقرير أداء الأسبوع", time: "3:00 مساءً", priority: "low" },
-                            ].map((task, index) => (
-                                <div
-                                    key={index}
-                                    className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent transition-colors cursor-pointer"
-                                >
-                                    <input type="checkbox" className="w-4 h-4 text-primary" />
-                                    <div className="flex-1">
-                                        <p className="text-sm font-medium">{task.title}</p>
-                                        <p className="text-xs text-muted-foreground">{task.time}</p>
-                                    </div>
-                                    <span
-                                        className={`text-xs px-2 py-1 rounded ${task.priority === "high"
-                                            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                                            : task.priority === "medium"
-                                                ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-                                                : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                                            }`}
-                                    >
-                                        {task.priority === "high" ? "عاجل" : task.priority === "medium" ? "متوسط" : "عادي"}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    </GlassCardContent>
-                </GlassCard>
-            ),
-        },
-        {
-            id: "quick-actions",
-            title: "إجراءات سريعة",
-            category: "محتوى",
-            component: (
-                <GlassCard intensity="light" hover className="h-full">
-                    <GlassCardHeader>
-                        <h2 className="text-lg font-semibold">إجراءات سريعة</h2>
-                    </GlassCardHeader>
-                    <GlassCardContent>
-                        <div className="grid gap-3 md:grid-cols-2">
-                            {[
-                                { icon: UserPlus, label: "إضافة عميل جديد", color: "bg-blue-500" },
-                                { icon: GraduationCap, label: "تسجيل طالب", color: "bg-green-500" },
-                                { icon: Calendar, label: "جدولة جلسة", color: "bg-purple-500" },
-                                { icon: DollarSign, label: "تسجيل دفعة", color: "bg-primary" },
-                            ].map((action, index) => (
-                                <button
-                                    key={index}
-                                    className="flex items-center gap-3 p-4 rounded-lg border hover:bg-accent transition-colors text-left"
-                                >
-                                    <div className={`p-2 rounded-lg ${action.color} text-white`}>
-                                        <action.icon className="w-5 h-5" />
-                                    </div>
-                                    <span className="text-sm font-medium">{action.label}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </GlassCardContent>
-                </GlassCard>
-            ),
-        },
-    ];
+    if (loading) return <div className="p-10 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
 
-    // Widget configuration for customizer
-    const widgetConfig = [
-        ...statWidgets.map(w => ({ id: w.id, title: w.title, visible: true, category: w.category })),
-        ...contentWidgets.map(w => ({ id: w.id, title: w.title, visible: true, category: w.category })),
-    ];
+    const visibleModules = modules.filter(m => {
+        if (!userRole) return false;
+        if (userRole === 'admin' || userRole === 'developer') return true;
+        if (userRole === 'manager' && m.href !== '/tech-panel') return true;
+        return m.role.includes(userRole);
+    });
 
     return (
-        <div className="flex flex-col gap-6 p-6 pb-24">
-            {/* Header */}
-            <div>
-                <h1 className="text-3xl font-bold text-foreground">
-                    مرحباً بك في Shavi Academy OS 🎯
-                </h1>
-                <p className="text-muted-foreground mt-2">
-                    نظام إدارة أكاديمي متكامل - لوحة التحكم الرئيسية
-                </p>
+        <div className="p-6 space-y-8">
+            {/* Hero Section */}
+            <div className="bg-gradient-to-r from-indigo-900 to-purple-900 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+
+                <div className="relative z-10">
+                    <h1 className="text-4xl font-black mb-2">Welcome to Shavi ERP</h1>
+                    <p className="text-indigo-200 text-lg max-w-xl">
+                        Your enterprise command center is ready. Access your department modules below.
+                    </p>
+
+                    <div className="flex gap-4 mt-6">
+                        <div className="bg-white/10 backdrop-blur-md px-4 py-3 rounded-xl border border-white/20">
+                            <p className="text-xs text-indigo-200 uppercase font-bold">System Status</p>
+                            <div className="flex items-center gap-2 mt-1">
+                                <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+                                <span className="font-bold">All Systems Operational</span>
+                            </div>
+                        </div>
+                        <div className="bg-white/10 backdrop-blur-md px-4 py-3 rounded-xl border border-white/20">
+                            <p className="text-xs text-indigo-200 uppercase font-bold">Your Role</p>
+                            <div className="flex items-center gap-2 mt-1">
+                                <Shield className="w-4 h-4 text-yellow-400" />
+                                <span className="font-bold capitalize">{userRole}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            {/* Draggable Stats Grid */}
-            <DraggableGrid
-                widgets={statWidgets}
-                className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
-                storageKey="dashboard-stats-layout"
-            />
+            {/* Modules Grid */}
+            <div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                    <LayoutDashboard className="w-5 h-5 text-gray-400" />
+                    Your Applications
+                </h2>
 
-            {/* Draggable Content Grid */}
-            <DraggableGrid
-                widgets={contentWidgets}
-                className="grid gap-4 md:grid-cols-1 lg:grid-cols-3"
-                storageKey="dashboard-content-layout"
-            />
+                {visibleModules.length === 0 ? (
+                    <div className="p-8 bg-yellow-50 text-yellow-800 rounded-xl border border-yellow-200">
+                        <h3 className="font-bold">Access Restricted</h3>
+                        <p>Your account ({userRole}) does not have access to any specific modules yet. Please contact an Administrator to assign a proper role.</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {visibleModules.map((module) => (
+                            <div
+                                key={module.title}
+                                onClick={() => router.push(module.href)}
+                                className="group bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer relative overflow-hidden"
+                            >
+                                <div className={`absolute top-0 right-0 w-32 h-32 ${module.bg} rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110`}></div>
 
-            {/* Dashboard Customizer */}
-            <DashboardCustomizer widgets={widgetConfig} />
+                                <div className={`w-12 h-12 ${module.bg} ${module.color.replace('bg-', 'text-')} rounded-xl flex items-center justify-center mb-4 text-xl`}>
+                                    <module.icon className="w-6 h-6" />
+                                </div>
+
+                                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 group-hover:text-primary transition-colors">
+                                    {module.title}
+                                </h3>
+                                <p className="text-sm text-gray-500 mb-6">
+                                    {module.description}
+                                </p>
+
+                                <div className="flex items-center text-sm font-bold text-gray-400 group-hover:text-primary transition-colors">
+                                    Launch Module <ArrowRight className="w-4 h-4 ml-1" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Recent Activity / Universal Updates */}
+            <div className="grid lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                    <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                        <Bell className="w-5 h-5 text-gray-400" />
+                        System Updates
+                    </h3>
+                    <div className="space-y-4">
+                        <div className="flex gap-4 items-start p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                            <div className="mt-1"><div className="w-2 h-2 rounded-full bg-blue-500"></div></div>
+                            <div>
+                                <h4 className="font-bold text-sm">Customer Support Module Launched</h4>
+                                <p className="text-xs text-gray-500 mt-1">New ticketing system is now live. Access it from the Customer Success card.</p>
+                                <span className="text-[10px] text-gray-400 mt-2 block">2 hours ago</span>
+                            </div>
+                        </div>
+                        <div className="flex gap-4 items-start p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                            <div className="mt-1"><div className="w-2 h-2 rounded-full bg-green-500"></div></div>
+                            <div>
+                                <h4 className="font-bold text-sm">Payroll Processed</h4>
+                                <p className="text-xs text-gray-500 mt-1">HR has finalized the December payroll batch.</p>
+                                <span className="text-[10px] text-gray-400 mt-2 block">1 day ago</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-gradient-to-br from-gray-900 to-gray-800 text-white rounded-xl p-6 shadow-lg">
+                    <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                        <TrendingUp className="w-5 h-5 text-green-400" />
+                        Quick Stats
+                    </h3>
+                    <div className="space-y-6">
+                        <div>
+                            <p className="text-xs text-gray-400 uppercase font-bold">Total Revenue (Dec)</p>
+                            <p className="text-2xl font-black text-green-400 flex items-center gap-1">
+                                $124,500 <span className="text-xs text-white bg-white/20 px-1 rounded">+12%</span>
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-400 uppercase font-bold">Active Students</p>
+                            <p className="text-2xl font-black text-blue-400">1,204</p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-400 uppercase font-bold">Open Tickets</p>
+                            <p className="text-2xl font-black text-orange-400">24</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }

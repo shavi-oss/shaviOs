@@ -1,289 +1,214 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+import { useState } from 'react';
 import {
-    Search,
-    Filter,
-    Plus,
     FileText,
-    DollarSign,
+    Plus,
+    Download,
+    Filter,
+    Search,
+    CheckCircle,
     Clock,
-    CheckCircle2,
     AlertCircle,
-    Calendar,
-    Download
+    XCircle,
+    Eye,
+    Send,
+    Edit
 } from 'lucide-react';
+import Link from 'next/link';
 
 interface Invoice {
     id: string;
-    invoice_number: number;
+    invoice_number: string;
     customer_name: string;
-    customer_email?: string;
+    customer_id: string;
     amount: number;
-    status: 'draft' | 'pending' | 'paid' | 'overdue' | 'cancelled';
+    status: 'draft' | 'issued' | 'paid' | 'pending' | 'overdue';
+    issue_date: string;
     due_date: string;
-    paid_at?: string;
-    created_at: string;
+    paid_amount: number;
 }
 
 export default function InvoicesPage() {
-    const router = useRouter();
-    const [invoices, setInvoices] = useState<Invoice[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [filterStatus, setFilterStatus] = useState('all');
+    const [searchQuery, setSearchQuery] = useState('');
 
-    useEffect(() => {
-        fetchInvoices();
-    }, [statusFilter]);
+    const invoices: Invoice[] = [
+        { id: '1', invoice_number: 'INV-2024-001', customer_name: 'TechCorp Ltd', customer_id: '1', amount: 45000, status: 'paid', issue_date: '2024-12-01', due_date: '2024-12-15', paid_amount: 45000 },
+        { id: '2', invoice_number: 'INV-2024-002', customer_name: 'Digital Solutions', customer_id: '2', amount: 38000, status: 'pending', issue_date: '2024-12-05', due_date: '2024-12-20', paid_amount: 0 },
+        { id: '3', invoice_number: 'INV-2024-003', customer_name: 'Innovation Hub', customer_id: '3', amount: 32000, status: 'overdue', issue_date: '2024-11-25', due_date: '2024-12-10', paid_amount: 0 },
+        { id: '4', invoice_number: 'INV-2024-004', customer_name: 'Smart Systems', customer_id: '4', amount: 29000, status: 'issued', issue_date: '2024-12-08', due_date: '2024-12-22', paid_amount: 0 },
+        { id: '5', invoice_number: 'INV-2024-005', customer_name: 'Cloud Ventures', customer_id: '5', amount: 25000, status: 'paid', issue_date: '2024-12-03', due_date: '2024-12-18', paid_amount: 25000 },
+        { id: '6', invoice_number: 'INV-2024-006', customer_name: 'TechCorp Ltd', customer_id: '1', amount: 52000, status: 'pending', issue_date: '2024-12-10', due_date: '2024-12-25', paid_amount: 0 }
+    ];
 
-    async function fetchInvoices() {
-        setLoading(true);
-        try {
-            const supabase = createClient();
-            let query = supabase
-                .from('invoices')
-                .select('*')
-                .order('created_at', { ascending: false });
-
-            if (statusFilter !== 'all') {
-                query = query.eq('status', statusFilter);
-            }
-
-            const { data, error } = await query;
-
-            if (error) {
-                // Fallback if table doesn't exist yet (graceful error handling)
-                console.warn('Invoices table might not exist yet:', error.message);
-                setInvoices([]);
-            } else {
-                setInvoices(data || []);
-            }
-        } catch (error) {
-            console.error('Error fetching invoices:', error);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    const filteredInvoices = invoices.filter(invoice =>
-        invoice.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        invoice.invoice_number.toString().includes(searchTerm)
-    );
-
-    const getStatusConfig = (status: string) => {
-        const configs = {
-            paid: { color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', icon: CheckCircle2, label: 'مدفوع' },
-            pending: { color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400', icon: Clock, label: 'معلق' },
-            overdue: { color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', icon: AlertCircle, label: 'متأخر' },
-            draft: { color: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400', icon: FileText, label: 'مسودة' },
-            cancelled: { color: 'bg-gray-100 text-gray-500 dark:bg-gray-900/30 dark:text-gray-500', icon: FileText, label: 'ملغي' },
-        };
-        return configs[status as keyof typeof configs] || configs.draft;
-    };
+    const filteredInvoices = invoices.filter(inv => {
+        const matchesSearch = inv.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            inv.invoice_number.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesStatus = filterStatus === 'all' || inv.status === filterStatus;
+        return matchesSearch && matchesStatus;
+    });
 
     const stats = {
-        total_revenue: invoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.amount, 0),
-        pending_amount: invoices.filter(i => i.status === 'pending').reduce((sum, i) => sum + i.amount, 0),
-        overdue_amount: invoices.filter(i => i.status === 'overdue').reduce((sum, i) => sum + i.amount, 0),
-        total_count: invoices.length
+        total: invoices.length,
+        total_amount: invoices.reduce((sum, inv) => sum + inv.amount, 0),
+        issued: invoices.filter(i => i.status === 'issued').length,
+        paid: invoices.filter(i => i.status === 'paid').length,
+        paid_amount: invoices.filter(i => i.status === 'paid').reduce((sum, inv) => sum + inv.paid_amount, 0),
+        pending: invoices.filter(i => i.status === 'pending').length,
+        overdue: invoices.filter(i => i.status === 'overdue').length
     };
 
-    if (loading) {
+    const getStatusBadge = (status: string) => {
+        const badges = {
+            draft: { bg: 'bg-gray-100', text: 'text-gray-700', icon: <Edit className="w-3 h-3" /> },
+            issued: { bg: 'bg-blue-100', text: 'text-blue-700', icon: <FileText className="w-3 h-3" /> },
+            paid: { bg: 'bg-green-100', text: 'text-green-700', icon: <CheckCircle className="w-3 h-3" /> },
+            pending: { bg: 'bg-orange-100', text: 'text-orange-700', icon: <Clock className="w-3 h-3" /> },
+            overdue: { bg: 'bg-red-100', text: 'text-red-700', icon: <AlertCircle className="w-3 h-3" /> }
+        };
+        const badge = badges[status as keyof typeof badges] || badges.draft;
         return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-                    <p className="mt-4 text-gray-600 dark:text-gray-400">جاري تحميل الفواتير...</p>
-                </div>
-            </div>
+            <span className={`px-2 py-0.5 ${badge.bg} ${badge.text} rounded-full text-xs font-bold flex items-center gap-1 w-fit`}>
+                {badge.icon} {status.charAt(0).toUpperCase() + status.slice(1)}
+            </span>
         );
-    }
+    };
 
     return (
         <div className="p-6 space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold text-foreground">الفواتير</h1>
-                    <p className="text-muted-foreground mt-2">
-                        إدارة الفواتير والمدفوعات
-                    </p>
+                    <h1 className="text-2xl font-bold flex items-center gap-2">
+                        <FileText className="w-6 h-6 text-primary" />
+                        Invoices
+                    </h1>
+                    <p className="text-gray-500 text-sm mt-1">Manage customer invoices and payments</p>
                 </div>
-                <button
-                    onClick={() => router.push('/finance/invoices/new')}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-                >
-                    <Plus className="w-5 h-5" />
-                    فاتورة جديدة
-                </button>
-            </div>
-
-            {/* Stats Cards */}
-            <div className="grid gap-4 md:grid-cols-4">
-                <div className="p-6 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-900/30">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full">
-                            <DollarSign className="w-6 h-6 text-green-600 dark:text-green-400" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-green-600 dark:text-green-400 font-medium">إجمالي الإيرادات</p>
-                            <p className="text-2xl font-bold text-green-700 dark:text-green-300">
-                                {stats.total_revenue.toLocaleString('ar-EG')} ج.م
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="p-6 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg border border-yellow-200 dark:border-yellow-900/30">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-full">
-                            <Clock className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-yellow-600 dark:text-yellow-400 font-medium">مبالغ معلقة</p>
-                            <p className="text-2xl font-bold text-yellow-700 dark:text-yellow-300">
-                                {stats.pending_amount.toLocaleString('ar-EG')} ج.م
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="p-6 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200 dark:border-red-900/30">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-full">
-                            <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-red-600 dark:text-red-400 font-medium">مستحقات متأخرة</p>
-                            <p className="text-2xl font-bold text-red-700 dark:text-red-300">
-                                {stats.overdue_amount.toLocaleString('ar-EG')} ج.م
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="p-6 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-900/30">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-full">
-                            <FileText className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">إجمالي الفواتير</p>
-                            <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
-                                {stats.total_count}
-                            </p>
-                        </div>
-                    </div>
+                <div className="flex gap-2">
+                    <button className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-bold flex items-center gap-2">
+                        <Download className="w-4 h-4" /> Export
+                    </button>
+                    <Link href="/finance/invoices/new" className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90 flex items-center gap-2">
+                        <Plus className="w-4 h-4" /> Create Invoice
+                    </Link>
                 </div>
             </div>
 
-            {/* Filters */}
-            <div className="flex flex-col md:flex-row gap-4">
-                <div className="relative flex-1">
-                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                        type="search"
-                        placeholder="بحث برقم الفاتورة أو اسم العميل..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pr-10 pl-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    />
+            {/* Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div className="text-2xl font-black text-gray-900 dark:text-white">{stats.total}</div>
+                    <div className="text-xs text-gray-500 font-medium mt-1">Total Invoices</div>
+                    <div className="text-xs text-gray-400 mt-1">${(stats.total_amount / 1000).toFixed(0)}K</div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Filter className="w-4 h-4 text-gray-400" />
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    >
-                        <option value="all">جميع الحالات</option>
-                        <option value="paid">مدفوع</option>
-                        <option value="pending">معلق</option>
-                        <option value="overdue">متأخر</option>
-                        <option value="draft">مسودة</option>
-                        <option value="cancelled">ملغي</option>
-                    </select>
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-200 dark:border-blue-800">
+                    <div className="text-2xl font-black text-blue-600">{stats.issued}</div>
+                    <div className="text-xs text-blue-700 dark:text-blue-400 font-medium mt-1">Issued</div>
+                </div>
+                <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl border border-green-200 dark:border-green-800">
+                    <div className="text-2xl font-black text-green-600">{stats.paid}</div>
+                    <div className="text-xs text-green-700 dark:text-green-400 font-medium mt-1">Paid</div>
+                    <div className="text-xs text-green-600 mt-1">${(stats.paid_amount / 1000).toFixed(0)}K</div>
+                </div>
+                <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl border border-orange-200 dark:border-orange-800">
+                    <div className="text-2xl font-black text-orange-600">{stats.pending}</div>
+                    <div className="text-xs text-orange-700 dark:text-orange-400 font-medium mt-1">Pending</div>
+                </div>
+                <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-200 dark:border-red-800">
+                    <div className="text-2xl font-black text-red-600">{stats.overdue}</div>
+                    <div className="text-xs text-red-700 dark:text-red-400 font-medium mt-1">🚨 Overdue</div>
+                </div>
+            </div>
+
+            {/* Filters & Search */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                    {/* Search */}
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search by customer or invoice number..."
+                            className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-900 border-0 rounded-lg text-sm"
+                        />
+                    </div>
+
+                    {/* Status Filter */}
+                    <div className="flex gap-2">
+                        {['all', 'issued', 'paid', 'pending', 'overdue'].map(status => (
+                            <button
+                                key={status}
+                                onClick={() => setFilterStatus(status)}
+                                className={`px-3 py-2 rounded-lg text-sm font-bold capitalize transition-all ${filterStatus === status
+                                        ? 'bg-primary text-white'
+                                        : 'bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300'
+                                    }`}
+                            >
+                                {status}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
             {/* Invoices Table */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead className="bg-gray-50 dark:bg-gray-900">
-                            <tr>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">رقم الفاتورة</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">العميل</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">المبلغ</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">التاريخ</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">تاريخ الاستحقاق</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">الحالة</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">إجراءات</th>
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <table className="w-full">
+                    <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+                        <tr>
+                            <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase">Invoice #</th>
+                            <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase">Customer</th>
+                            <th className="text-right py-3 px-4 text-xs font-bold text-gray-500 uppercase">Amount</th>
+                            <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase">Issue Date</th>
+                            <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase">Due Date</th>
+                            <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase">Status</th>
+                            <th className="text-right py-3 px-4 text-xs font-bold text-gray-500 uppercase">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {filteredInvoices.map(invoice => (
+                            <tr key={invoice.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50">
+                                <td className="py-3 px-4 font-mono text-sm font-bold text-blue-600">{invoice.invoice_number}</td>
+                                <td className="py-3 px-4">
+                                    <Link href={`/finance/customers/${invoice.customer_id}`} className="font-medium text-gray-900 dark:text-white hover:text-primary">
+                                        {invoice.customer_name}
+                                    </Link>
+                                </td>
+                                <td className="py-3 px-4 text-right text-lg font-black text-gray-900 dark:text-white">
+                                    ${invoice.amount.toLocaleString()}
+                                </td>
+                                <td className="py-3 px-4 text-sm text-gray-600">
+                                    {new Date(invoice.issue_date).toLocaleDateString()}
+                                </td>
+                                <td className="py-3 px-4 text-sm text-gray-600">
+                                    {new Date(invoice.due_date).toLocaleDateString()}
+                                </td>
+                                <td className="py-3 px-4">
+                                    {getStatusBadge(invoice.status)}
+                                </td>
+                                <td className="py-3 px-4 text-right">
+                                    <div className="flex justify-end gap-2">
+                                        <button className="p-1 hover:bg-gray-100 rounded" title="View">
+                                            <Eye className="w-4 h-4 text-gray-600" />
+                                        </button>
+                                        <button className="p-1 hover:bg-gray-100 rounded" title="Download PDF">
+                                            <Download className="w-4 h-4 text-gray-600" />
+                                        </button>
+                                        {invoice.status === 'pending' && (
+                                            <button className="p-1 hover:bg-gray-100 rounded" title="Send">
+                                                <Send className="w-4 h-4 text-blue-600" />
+                                            </button>
+                                        )}
+                                    </div>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                            {filteredInvoices.length === 0 ? (
-                                <tr>
-                                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                                        لا توجد فواتير مطابقة
-                                    </td>
-                                </tr>
-                            ) : (
-                                filteredInvoices.map((invoice) => {
-                                    const statusConfig = getStatusConfig(invoice.status);
-                                    const StatusIcon = statusConfig.icon;
-                                    return (
-                                        <tr key={invoice.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
-                                            <td className="px-6 py-4 whitespace-nowrap font-mono text-sm">
-                                                #{invoice.invoice_number}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="font-medium text-gray-900 dark:text-white">
-                                                    {invoice.customer_name}
-                                                </div>
-                                                {invoice.customer_email && (
-                                                    <div className="text-xs text-gray-500">
-                                                        {invoice.customer_email}
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap font-bold text-gray-900 dark:text-white">
-                                                {invoice.amount.toLocaleString('ar-EG')} ج.م
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {new Date(invoice.created_at).toLocaleDateString('ar-EG')}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                <div className="flex items-center gap-2">
-                                                    <Calendar className="w-4 h-4" />
-                                                    {new Date(invoice.due_date).toLocaleDateString('ar-EG')}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusConfig.color}`}>
-                                                    <StatusIcon className="w-3.5 h-3.5" />
-                                                    {statusConfig.label}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <button
-                                                    onClick={() => window.print()}
-                                                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-500"
-                                                    title="تحميل PDF"
-                                                >
-                                                    <Download className="w-4 h-4" />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                        ))}
+                    </tbody>
+                </table>
             </div>
         </div>
     );

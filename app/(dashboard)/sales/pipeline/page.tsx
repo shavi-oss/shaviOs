@@ -1,355 +1,124 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { useState } from 'react';
 import {
     DndContext,
+    DragEndEvent,
     DragOverlay,
-    closestCorners,
-    KeyboardSensor,
+    DragStartEvent,
     PointerSensor,
     useSensor,
-    useSensors,
-    DragStartEvent,
-    DragOverEvent,
-    DragEndEvent,
-} from "@dnd-kit/core";
-import {
-    arrayMove,
-    SortableContext,
-    sortableKeyboardCoordinates,
-    verticalListSortingStrategy,
-    useSortable,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import {
-    TrendingUp,
-    DollarSign,
-    Calendar,
-    Plus,
-    Building2,
-    MoreVertical,
-    Clock,
-    AlertCircle
-} from "lucide-react";
+    useSensors
+} from '@dnd-kit/core';
+import { TrendingUp, Flame, CheckCircle, XCircle, Phone, Mail, MessageSquare, Clock } from 'lucide-react';
 
-// --- Types ---
 interface Deal {
     id: string;
     title: string;
+    company: string;
     value: number;
     stage: string;
-    customer_name: string;
-    customer_company?: string;
-    expected_close_date: string;
+    priority: 'hot' | 'warm' | 'cold';
+    contact_name: string;
 }
 
-const STAGES = [
-    { id: 'new', label: 'New', color: 'bg-blue-50 dark:bg-blue-900/20 text-blue-700' },
-    { id: 'contacted', label: 'Contacted', color: 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700' },
-    { id: 'qualified', label: 'Qualified', color: 'bg-purple-50 dark:bg-purple-900/20 text-purple-700' },
-    { id: 'proposal', label: 'Proposal Sent', color: 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700' },
-    { id: 'negotiation', label: 'Negotiation', color: 'bg-orange-50 dark:bg-orange-900/20 text-orange-700' },
-    { id: 'closed_won', label: 'Won', color: 'bg-green-50 dark:bg-green-900/20 text-green-700' },
-    { id: 'closed_lost', label: 'Lost', color: 'bg-red-50 dark:bg-red-900/20 text-red-700' },
+const stages = [
+    { id: 'new', name: 'New', color: 'bg-gray-100 border-gray-300 text-gray-700' },
+    { id: 'contacted', name: 'Contacted', color: 'bg-blue-100 border-blue-300 text-blue-700' },
+    { id: 'qualified', name: 'Qualified', color: 'bg-purple-100 border-purple-300 text-purple-700' },
+    { id: 'proposal', name: 'Proposal', color: 'bg-orange-100 border-orange-300 text-orange-700' },
+    { id: 'negotiation', name: 'Negotiation', color: 'bg-yellow-100 border-yellow-300 text-yellow-700' },
+    { id: 'closed', name: 'Closed', color: 'bg-green-100 border-green-300 text-green-700' }
 ];
 
-// --- Components ---
-
-// 1. Sortable Item (Deal Card)
-function SortableDealCard({ deal, onClick }: { deal: Deal; onClick: () => void }) {
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        transform,
-        transition,
-        isDragging
-    } = useSortable({ id: deal.id, data: { type: 'deal', deal } });
-
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.5 : 1,
-    };
-
-    return (
-        <div
-            ref={setNodeRef}
-            style={style}
-            {...attributes}
-            {...listeners}
-            onClick={onClick}
-            className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing group relative mb-3"
-        >
-            <div className="flex justify-between items-start mb-2">
-                <h4 className="font-semibold text-sm text-gray-900 dark:text-white line-clamp-2">
-                    {deal.title}
-                </h4>
-                <button className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-opacity">
-                    <MoreVertical className="w-3 h-3 text-gray-400" />
-                </button>
-            </div>
-
-            <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 mb-2">
-                <Building2 className="w-3 h-3" />
-                <span className="truncate">{deal.customer_company || deal.customer_name}</span>
-            </div>
-
-            <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-700 mt-2">
-                <span className="font-bold text-sm text-gray-900 dark:text-white">
-                    {deal.value?.toLocaleString()}
-                </span>
-                {deal.expected_close_date && (
-                    <div className="flex items-center gap-1 text-[10px] text-gray-400">
-                        <Calendar className="w-3 h-3" />
-                        {new Date(deal.expected_close_date).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-}
-
-// 2. Column (Droppable)
-function PipelineColumn({ stage, deals, onAddClick }: { stage: typeof STAGES[0]; deals: Deal[]; onAddClick: () => void }) {
-    const totalValue = deals.reduce((sum, d) => sum + (d.value || 0), 0);
-
-    // Sortable context requires IDs
-    const dealIds = deals.map(d => d.id);
-
-    return (
-        <div className="flex flex-col min-w-[280px] w-72 h-full">
-            {/* Header */}
-            <div className={`p-3 rounded-t-xl border-t-4 ${stage.color.replace('bg-', 'border-')} bg-white dark:bg-gray-800 border-x border-b border-gray-200 dark:border-gray-700 flex flex-col gap-1 shadow-sm`}>
-                <div className="flex justify-between items-center">
-                    <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100">{stage.label}</h3>
-                    <span className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full font-mono">
-                        {deals.length}
-                    </span>
-                </div>
-                <div className="flex justify-between items-center text-xs text-gray-500">
-                    <span>{totalValue.toLocaleString()} EGP</span>
-                    <button onClick={onAddClick} className="hover:text-primary transition-colors">
-                        <Plus className="w-4 h-4" />
-                    </button>
-                </div>
-            </div>
-
-            {/* Droppable Area */}
-            <div className="flex-1 bg-gray-50/50 dark:bg-gray-900/50 border-x border-b border-gray-200 dark:border-gray-700 rounded-b-xl p-2 overflow-y-auto">
-                <SortableContext items={dealIds} strategy={verticalListSortingStrategy}>
-                    {deals.map(deal => (
-                        <SortableDealCard
-                            key={deal.id}
-                            deal={deal}
-                            onClick={() => window.location.href = `/sales/deals/${deal.id}`}
-                        />
-                    ))}
-                </SortableContext>
-                {deals.length === 0 && (
-                    <div className="h-24 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg flex items-center justify-center text-xs text-gray-400">
-                        Drop here
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-}
-
-
-// --- Main Page ---
-export default function PipelinePage() {
-    const router = useRouter();
-    const [deals, setDeals] = useState<Deal[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [activeId, setActiveId] = useState<string | null>(null);
+export default function SalesPipelinePage() {
+    const [activeDeal, setActiveDeal] = useState<Deal | null>(null);
+    const [deals, setDeals] = useState<Deal[]>([
+        { id: '1', title: 'Enterprise License', company: 'Tech Corp', value: 50000, stage: 'proposal', priority: 'hot', contact_name: 'Ahmed Hassan' },
+        { id: '2', title: 'Startup Package', company: 'Startup Inc', value: 15000, stage: 'negotiation', priority: 'warm', contact_name: 'Sara Ali' },
+        { id: '3', title: 'Renewal Deal', company: 'Big Co', value: 80000, stage: 'contacted', priority: 'hot', contact_name: 'Mohamed Saeed' },
+        { id: '4', title: 'Real Estate', company: 'Property Ltd', value: 25000, stage: 'qualified', priority: 'cold', contact_name: 'Laila Mohamed' },
+        { id: '5', title: 'New Inquiry', company: 'Retail Chain', value: 35000, stage: 'new', priority: 'warm', contact_name: 'Omar Khalid' },
+        { id: '6', title: 'Expansion Deal', company: 'Tech Corp', value: 120000, stage: 'proposal', priority: 'hot', contact_name: 'Fatima Ali' },
+    ]);
 
     const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }), // Drag after 5px move
-        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8,
+            },
+        })
     );
 
-    useEffect(() => {
-        fetchDeals();
-    }, []);
-
-    async function fetchDeals() {
-        const supabase = createClient();
-        const { data } = await supabase.from('deals').select('*');
-        if (data) setDeals(data);
-        setLoading(false);
-    }
-
-    // --- Drag Handlers ---
     const handleDragStart = (event: DragStartEvent) => {
-        setActiveId(event.active.id as string);
+        const deal = deals.find(d => d.id === event.active.id);
+        setActiveDeal(deal || null);
     };
 
-    const handleDragEnd = async (event: DragEndEvent) => {
+    const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
-        setActiveId(null);
 
-        if (!over) return;
+        if (over && active.id !== over.id) {
+            const dealId = active.id as string;
+            const newStage = over.id as string;
 
-        const activeDealId = active.id as string;
-        const overId = over.id as string; // Could be a deal ID or a container ID (if we make columns droppable)
-
-        // Find which deal was dragged
-        const activeDeal = deals.find(d => d.id === activeDealId);
-        if (!activeDeal) return;
-
-        // Find Target Stage
-        // NOTE: In dnd-kit Sortable, 'over.id' is usually another item in the list.
-        // We must determine which column (stage) the 'over' item belongs to.
-        // Or if we dropped directly on a container?
-        // To simplify, let's assume dropping on a *card* puts it in that card's stage.
-
-        let newStage = activeDeal.stage;
-
-        const overDeal = deals.find(d => d.id === overId);
-        if (overDeal) {
-            newStage = overDeal.stage;
-        } else {
-            // Did we drop on a column? Check if overId matches a stage ID
-            // NOTE: We didn't set stage IDs as droppable containers in SortableContext directly
-            // But we can check if the ID is in STAGES
-            // For this to work robustly, we need Droppable Containers.
-            // But SortableContext generally handles reordering within.
-            // Let's implement a simple "Find Container" approach.
-            // For now, this implementation assumes sorting within list.
-            // If dragging BETWEEN lists, dnd-kit handles it if we structure it right.
+            setDeals(deals =>
+                deals.map(deal =>
+                    deal.id === dealId ? { ...deal, stage: newStage } : deal
+                )
+            );
         }
 
-        // --- Simplified approach for "Kanban" ---
-        // We will just update state for visual feedback if stage changed.
-        // But implementing full DnD logic across columns requires `onDragOver` too.
-
-        // Due to complexity of "Robust DnD" in a single file without extra components,
-        // We will rely on `handleDragOver` to move items between containers virtually,
-        // and `handleDragEnd` to persist to DB.
+        setActiveDeal(null);
     };
 
-    // Adapted from dnd-kit examples for multi-container
-    const findContainer = (id: string) => {
-        if (deals.find(d => d.id === id)) {
-            return deals.find(d => d.id === id)?.stage;
-        }
-        return STAGES.find(s => s.id === id)?.id;
+    const getDealsByStage = (stageId: string) => {
+        return deals.filter(deal => deal.stage === stageId);
     };
 
-    const handleDragOver = (event: DragOverEvent) => {
-        const { active, over } = event;
-        if (!over) return;
-
-        const activeId = active.id as string;
-        const overId = over.id as string;
-
-        // Find containers
-        const activeContainer = findContainer(activeId);
-        const overContainer = findContainer(overId);
-
-        if (!activeContainer || !overContainer || activeContainer === overContainer) {
-            return;
-        }
-
-        // Move item to new container in STATE
-        setDeals((prev) => {
-            const activeItems = prev.filter(d => d.stage === activeContainer);
-            const overItems = prev.filter(d => d.stage === overContainer);
-
-            const activeIndex = prev.findIndex(d => d.id === activeId);
-            const overIndex = prev.findIndex(d => d.id === overId); // might be -1 if dropping on empty container
-
-            let newIndex;
-            if (overIndex >= 0) {
-                // Dropped on an item
-                newIndex = overIndex; // simplified
-            } else {
-                // Dropped on column
-                newIndex = prev.length + 1;
-            }
-
-            // Create new array with updated stage
-            return prev.map(d => {
-                if (d.id === activeId) return { ...d, stage: overContainer };
-                return d;
-            });
-        });
+    const getTotalValue = (stageId: string) => {
+        return getDealsByStage(stageId).reduce((sum, deal) => sum + deal.value, 0);
     };
-
-    const handleDragEndFinal = async (event: DragEndEvent) => {
-        const { active, over } = event;
-        setActiveId(null);
-
-        if (!over) return;
-
-        const activeContainer = findContainer(active.id as string);
-        const overContainer = findContainer(over.id as string);
-
-        if (activeContainer && overContainer) {
-            // Persist to DB
-            const supabase = createClient();
-            await supabase.from('deals').update({ stage: overContainer }).eq('id', active.id);
-            // Also log activity? 
-            // Ideally yes, but keeping it fast for now.
-        }
-    }
-
-
-    if (loading) return <div className="p-8 text-center text-gray-500">Loading Pipeline...</div>;
 
     return (
-        <div className="flex flex-col h-[calc(100vh-4rem)] overflow-hidden">
-            {/* Sticky Header */}
-            <div className="p-6 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center shrink-0 z-10">
-                <div>
-                    <h1 className="text-2xl font-bold flex items-center gap-2">
-                        <TrendingUp className="w-6 h-6 text-primary" />
-                        Pipeline Board
-                    </h1>
-                    <div className="flex gap-4 mt-1 text-sm text-gray-500">
-                        <span className="flex items-center gap-1">
-                            <DollarSign className="w-3 h-3" />
-                            Total: {deals.reduce((acc, d) => acc + d.value, 0).toLocaleString()} EGP
-                        </span>
-                        <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {deals.length} Active Deals
-                        </span>
+        <div className="h-[calc(100vh-4rem)] flex flex-col bg-gray-50 dark:bg-gray-900">
+            {/* Header */}
+            <div className="p-6 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shrink-0">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <h1 className="text-2xl font-bold flex items-center gap-2">
+                            <TrendingUp className="w-6 h-6 text-primary" />
+                            Sales Pipeline
+                        </h1>
+                        <p className="text-gray-500 text-sm mt-1">Drag deals between stages to update status</p>
                     </div>
-                </div>
-                <div className="flex gap-2">
-                    <button onClick={() => router.push('/sales/deals/new')} className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 flex items-center gap-2 text-sm font-medium">
-                        <Plus className="w-4 h-4" />
-                        Add Deal
-                    </button>
+                    <div className="flex gap-4">
+                        <div className="text-right">
+                            <div className="text-2xl font-black text-green-600">${deals.reduce((sum, d) => sum + d.value, 0).toLocaleString()}</div>
+                            <div className="text-xs text-gray-500">Total Pipeline</div>
+                        </div>
+                        <div className="text-right">
+                            <div className="text-2xl font-black text-gray-900 dark:text-white">{deals.length}</div>
+                            <div className="text-xs text-gray-500">Active Deals</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             {/* Kanban Board */}
-            <DndContext
-                sensors={sensors}
-                collisionDetection={closestCorners}
-                onDragStart={handleDragStart}
-                onDragOver={handleDragOver}
-                onDragEnd={handleDragEndFinal}
-            >
-                <div className="flex-1 overflow-x-auto overflow-y-hidden p-6">
+            <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+                <div className="flex-1 overflow-x-auto p-4">
                     <div className="flex gap-4 h-full min-w-max">
-                        {STAGES.map(stage => {
-                            // We make the whole column a sortable context? No, just the items inside.
-                            // But we need the column ID to be drop target.
-                            // Dnd-kit's SortableContext works on a list of IDs.
-                            // We need to implement Droppable for the column itself if it's empty.
+                        {stages.map(stage => {
+                            const stageDeals = getDealsByStage(stage.id);
+                            const totalValue = getTotalValue(stage.id);
 
                             return (
-                                <PipelineColumn
+                                <KanbanColumn
                                     key={stage.id}
                                     stage={stage}
-                                    deals={deals.filter(d => d.stage === stage.id)}
-                                    onAddClick={() => router.push(`/sales/deals/new?stage=${stage.id}`)}
+                                    deals={stageDeals}
+                                    totalValue={totalValue}
                                 />
                             );
                         })}
@@ -357,13 +126,109 @@ export default function PipelinePage() {
                 </div>
 
                 <DragOverlay>
-                    {activeId ? (
-                        <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-xl border border-primary/50 opacity-90 w-72 rotate-3 cursor-grabbing">
-                            <h4 className="font-bold">{deals.find(d => d.id === activeId)?.title}</h4>
-                        </div>
-                    ) : null}
+                    {activeDeal ? <DealCardPreview deal={activeDeal} /> : null}
                 </DragOverlay>
             </DndContext>
+        </div>
+    );
+}
+
+function KanbanColumn({ stage, deals, totalValue }: { stage: any; deals: Deal[]; totalValue: number }) {
+    const { useDroppable } = require('@dnd-kit/core');
+    const { setNodeRef } = useDroppable({ id: stage.id });
+
+    return (
+        <div
+            ref={setNodeRef}
+            className="w-80 shrink-0 flex flex-col bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 h-full"
+        >
+            {/* Column Header */}
+            <div className={`p-4 border-b border-gray-200 dark:border-gray-700 ${stage.color} rounded-t-xl`}>
+                <div className="flex justify-between items-center mb-2">
+                    <h3 className="font-bold text-sm uppercase">{stage.name}</h3>
+                    <span className="text-xs font-bold bg-white/50 px-2 py-0.5 rounded-full">{deals.length}</span>
+                </div>
+                <div className="text-xs font-medium opacity-80">
+                    ${totalValue.toLocaleString()}
+                </div>
+            </div>
+
+            {/* Deals List */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                {deals.map(deal => (
+                    <DealCard key={deal.id} deal={deal} />
+                ))}
+                {deals.length === 0 && (
+                    <div className="text-center text-gray-400 text-xs py-8">
+                        Drop deals here
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function DealCard({ deal }: { deal: Deal }) {
+    const { useDraggable } = require('@dnd-kit/core');
+    const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+        id: deal.id,
+    });
+
+    const style = transform ? {
+        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+        opacity: isDragging ? 0.5 : 1,
+    } : undefined;
+
+    const getPriorityColor = (priority: string) => {
+        if (priority === 'hot') return 'border-l-4 border-red-500 bg-red-50/30 dark:bg-red-900/10';
+        if (priority === 'warm') return 'border-l-4 border-orange-500 bg-orange-50/30 dark:bg-orange-900/10';
+        return 'border-l-4 border-blue-500 bg-blue-50/30 dark:bg-blue-900/10';
+    };
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            {...listeners}
+            {...attributes}
+            className={`bg-white dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing ${getPriorityColor(deal.priority)}`}
+        >
+            <div className="flex items-start justify-between mb-2">
+                <h4 className="font-bold text-sm text-gray-900 dark:text-white flex-1">{deal.title}</h4>
+                {deal.priority === 'hot' && <Flame className="w-4 h-4 text-red-500 fill-red-500 shrink-0" />}
+            </div>
+
+            <p className="text-xs text-gray-500 mb-3">{deal.company}</p>
+
+            <div className="flex items-center justify-between">
+                <div className="text-lg font-black text-green-600">${(deal.value / 1000).toFixed(0)}K</div>
+                <div className="flex gap-1">
+                    <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors">
+                        <Phone className="w-3 h-3 text-gray-400" />
+                    </button>
+                    <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors">
+                        <Mail className="w-3 h-3 text-gray-400" />
+                    </button>
+                    <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors">
+                        <MessageSquare className="w-3 h-3 text-gray-400" />
+                    </button>
+                </div>
+            </div>
+
+            <div className="text-[10px] text-gray-400 mt-2">{deal.contact_name}</div>
+        </div>
+    );
+}
+
+function DealCardPreview({ deal }: { deal: Deal }) {
+    return (
+        <div className="bg-white dark:bg-gray-900 p-4 rounded-lg border-2 border-primary shadow-2xl w-80 opacity-90">
+            <div className="flex items-start justify-between mb-2">
+                <h4 className="font-bold text-sm">{deal.title}</h4>
+                {deal.priority === 'hot' && <Flame className="w-4 h-4 text-red-500 fill-red-500" />}
+            </div>
+            <p className="text-xs text-gray-500 mb-2">{deal.company}</p>
+            <div className="text-lg font-black text-green-600">${(deal.value / 1000).toFixed(0)}K</div>
         </div>
     );
 }

@@ -5,6 +5,8 @@ import { Bell, Search, User, LogOut, Loader2, X } from "lucide-react";
 import { ThemeToggle } from "@/components/settings/theme-toggle";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { NotificationDropdown } from "./notification-dropdown";
+import { useNotifications } from "@/contexts/notification-context";
 
 interface HeaderProps {
     user: {
@@ -25,10 +27,12 @@ interface SearchResult {
 
 export function Header({ user }: HeaderProps) {
     const router = useRouter();
+    const { unreadCount } = useNotifications();
     const [query, setQuery] = useState("");
     const [results, setResults] = useState<SearchResult[]>([]);
     const [loading, setLoading] = useState(false);
     const [showResults, setShowResults] = useState(false);
+    const [showNotifications, setShowNotifications] = useState(false);
     const searchRef = useRef<HTMLDivElement>(null);
 
     // Click outside to close
@@ -168,13 +172,24 @@ export function Header({ user }: HeaderProps) {
                     <ThemeToggle />
 
                     {/* Notifications */}
-                    <button
-                        className="relative p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                        aria-label="Notifications"
-                    >
-                        <Bell className="w-5 h-5" />
-                        <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-                    </button>
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowNotifications(!showNotifications)}
+                            className="relative p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                            aria-label="Notifications"
+                        >
+                            <Bell className="w-5 h-5" />
+                            {unreadCount > 0 && (
+                                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                            )}
+                            {unreadCount > 0 && (
+                                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                                    {unreadCount > 9 ? '9+' : unreadCount}
+                                </span>
+                            )}
+                        </button>
+                        <NotificationDropdown isOpen={showNotifications} onClose={() => setShowNotifications(false)} />
+                    </div>
 
                     {/* User Menu */}
                     <div className="flex items-center gap-3 pr-3 border-r border-gray-200 dark:border-gray-800">
