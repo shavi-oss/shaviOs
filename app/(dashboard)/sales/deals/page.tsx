@@ -47,22 +47,61 @@ export default function DealsListPage() {
     const router = useRouter();
     const [deals, setDeals] = useState<Deal[]>([]);
     const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
+    const [stageFilter, setStageFilter] = useState('all');
 
     useEffect(() => {
         fetchDeals();
-    }, []);
+    }, [stageFilter]);
 
     const fetchDeals = async () => {
-        const supabase = createClient();
-        const { data } = await supabase.from('deals').select('*').order('created_at', { ascending: false });
-        if (data) setDeals(data);
-        setLoading(false);
+        try {
+            const supabase = createClient();
+
+            // Enhanced query with joins
+            let query = supabase
+                .from('deals')
+                .select(`
+                    *,
+                    owner:owner_id (
+                        id,
+                        full_name,
+                        email
+                    ),
+                    stage_info:stage (
+                        name,
+                        color,
+                        position
+                    )
+                `)
+                .order('created_at', { ascending: false });
+
+            // Apply stage filter if selected
+            if (stageFilter !== 'all') {
+                query = query.eq('stage', stageFilter);
+            }
+
+            const { data, error } = await query;
+
+            if (error) {
+                console.error('Error fetching deals:', error);
+                setDeals([]);
+                setLoading(false);
+                return;
+            }
+
+            if (data) setDeals(data);
+            setLoading(false);
+        } catch (err) {
+            console.error('Failed to fetch deals:', err);
+            setDeals([]);
+            setLoading(false);
+        }
     };
 
     const filteredDeals = deals.filter(deal =>
-        deal.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        deal.customer_name?.toLowerCase().includes(searchTerm.toLowerCase())
+        deal.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        deal.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        deal.owner?.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     if (loading) {
@@ -100,12 +139,26 @@ export default function DealsListPage() {
                     <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
                         type="search"
-                        placeholder="بحث عن صفقة أو عميل..."
+                        placeholder="بحث عن صفقة أو عميل أو مسؤول..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full pr-10 pl-4 py-2 border rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/20 outline-none"
                     />
                 </div>
+                <select
+                    value={stageFilter}
+                    onChange={(e) => setStageFilter(e.target.value)}
+                    className="px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-primary/20 outline-none"
+                >
+                    <option value="all">كل المراحل</option>
+                    <option value="new">جديد</option>
+                    <option value="contacted">تم التواصل</option>
+                    <option value="qualified">مؤهل</option>
+                    <option value="proposal">عرض سعر</option>
+                    <option value="negotiation">تفاوض</option>
+                    <option value="closed_won">نجاح</option>
+                    <option value="closed_lost">خسارة</option>
+                </select>
                 <button className="px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-600 hover:bg-gray-50">
                     <Filter className="w-4 h-4" />
                 </button>
