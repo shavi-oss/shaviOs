@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LogIn, AlertCircle } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -13,6 +14,7 @@ export default function LoginPage() {
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const supabase = createClient();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -20,23 +22,19 @@ export default function LoginPage() {
         setIsLoading(true);
 
         try {
-            const response = await fetch("/api/auth/login", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ email, password }),
+            // Sign in with Supabase
+            const { data, error: signInError } = await supabase.auth.signInWithPassword({
+                email,
+                password,
             });
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                setError(data.error || "فشل تسجيل الدخول");
+            if (signInError) {
+                setError(signInError.message || "فشل تسجيل الدخول");
                 setIsLoading(false);
                 return;
             }
 
-            // Redirect to dashboard
+            // Success! Redirect to dashboard
             router.push("/");
             router.refresh();
         } catch (err) {
