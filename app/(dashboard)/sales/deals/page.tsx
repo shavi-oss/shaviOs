@@ -47,6 +47,7 @@ export default function DealsListPage() {
     const router = useRouter();
     const [deals, setDeals] = useState<Deal[]>([]);
     const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
     const [stageFilter, setStageFilter] = useState('all');
 
     useEffect(() => {
