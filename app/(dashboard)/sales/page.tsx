@@ -28,16 +28,75 @@ export default function SalesDashboard() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Simulate API call
-        setTimeout(() => {
-            setStats({
-                totalRevenue: 2450000,
-                activeDeals: 34,
-                winRate: 68.5,
-                pipelineValue: 1850000
-            });
-            setLoading(false);
-        }, 500);
+        async function fetchSalesStats() {
+            try {
+                const { createClient } = await import('@/lib/supabase/client');
+                const supabase = createClient();
+
+                // Fetch all deals
+                const { data: deals, error } = await supabase
+                    .from('deals')
+                    .select('id, value, stage, currency');
+
+                if (error) {
+                    console.error('Error fetching deals:', error);
+                    setStats({
+                        totalRevenue: 0,
+                        activeDeals: 0,
+                        winRate: 0,
+                        pipelineValue: 0
+                    });
+                    setLoading(false);
+                    return;
+                }
+
+                // If no deals, show zeros
+                if (!deals || deals.length === 0) {
+                    setStats({
+                        totalRevenue: 0,
+                        activeDeals: 0,
+                        winRate: 0,
+                        pipelineValue: 0
+                    });
+                    setLoading(false);
+                    return;
+                }
+
+                // Calculate stats from real data
+                const closedWonDeals = deals.filter(d => d.stage === 'closed_won');
+                const closedLostDeals = deals.filter(d => d.stage === 'closed_lost');
+                const activeDeals = deals.filter(d => d.stage !== 'closed_won' && d.stage !== 'closed_lost');
+
+                const totalRevenue = closedWonDeals.reduce((sum, deal) => sum + (deal.value || 0), 0);
+                const pipelineValue = activeDeals.reduce((sum, deal) => sum + (deal.value || 0), 0);
+
+                // Calculate win rate: (closed won / (closed won + closed lost)) * 100
+                const totalClosed = closedWonDeals.length + closedLostDeals.length;
+                const winRate = totalClosed > 0
+                    ? (closedWonDeals.length / totalClosed) * 100
+                    : 0;
+
+                setStats({
+                    totalRevenue,
+                    activeDeals: activeDeals.length,
+                    winRate,
+                    pipelineValue
+                });
+                setLoading(false);
+            } catch (err) {
+                console.error('Failed to fetch sales stats:', err);
+                // Fallback to zeros on error
+                setStats({
+                    totalRevenue: 0,
+                    activeDeals: 0,
+                    winRate: 0,
+                    pipelineValue: 0
+                });
+                setLoading(false);
+            }
+        }
+
+        fetchSalesStats();
     }, []);
 
     if (loading) {
