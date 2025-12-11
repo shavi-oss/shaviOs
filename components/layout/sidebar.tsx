@@ -99,7 +99,7 @@ export function Sidebar({ userRole }: SidebarProps) {
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+                <nav className="flex-1 overflow-y-auto p-4 space-y-1 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
                     {navigationItems.filter(item => {
                         // Admin, Developer, and Manager see everything (except Tech Panel is restricted further)
                         if (['admin', 'developer'].includes(userRole)) return true;
