@@ -14,6 +14,7 @@ interface NazmlyPayload {
     notes?: string;
     data?: {
         id?: string;
+        name?: string; // Added to fix build error
         email?: string;
         first_name?: string;
         last_name?: string;
@@ -22,6 +23,7 @@ interface NazmlyPayload {
         notes?: string;
         customer?: {
             id?: string;
+            name?: string; // Added to fix build error
             email?: string;
             first_name?: string;
             last_name?: string;
