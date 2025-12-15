@@ -94,7 +94,7 @@ export async function verifyBudgetSystem() {
     try {
         // 1. Check Categories
         const { count, error } = await supabase
-            .from('budget_categories')
+            .from('budget_categories' as any)
             .select('*', { count: 'exact', head: true });
         
         if (error) throw error;
