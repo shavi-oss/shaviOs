@@ -19,11 +19,12 @@ interface Course {
     id: string;
     title: string;
     code: string;
-    category: 'programming' | 'design' | 'marketing' | 'business' | 'languages' | 'data';
-    level: 'beginner' | 'intermediate' | 'advanced';
+    category: string;
+    level: string;
     duration_weeks: number;
     price: number;
-    status: 'active' | 'archived' | 'draft';
+    status: string;
+    description?: string | null;
 }
 
 interface CourseSession {

@@ -76,7 +76,8 @@ CREATE POLICY "Enable all for authenticated" ON knowledge_base FOR ALL TO authen
 CREATE POLICY "Enable all for authenticated" ON support_automations FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- Indexes
-CREATE INDEX IF NOT EXISTS idx_tickets_status ON support_tickets(status);
-CREATE INDEX IF NOT EXISTS idx_tickets_assigned ON support_tickets(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_tickets_status ON support_tickets(status);-- Indexes
+-- COMMENTED OUT: assigned_to column may not exist in older schema
+-- CREATE INDEX IF NOT EXISTS idx_tickets_assigned ON support_tickets(assigned_to);
 CREATE INDEX IF NOT EXISTS idx_messages_ticket ON ticket_messages(ticket_id);
 CREATE INDEX IF NOT EXISTS idx_kb_category ON knowledge_base(category);

@@ -41,3 +41,25 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+# Logs & Reports
+*.log
+*.txt
+Reports/
+eslint-errors.txt
+typescript-errors.txt
+tailwind-errors.txt
+tsc*.log
+build_log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.local
+.env.production
+
+# Supabase local
+.supabase/
+supabase.db

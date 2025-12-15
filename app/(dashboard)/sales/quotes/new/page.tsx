@@ -18,8 +18,8 @@ import {
 interface Deal {
     id: string;
     title: string;
-    customer_name: string;
-    customer_company?: string;
+    customer_name: string | null;
+    customer_company?: string | null;
 }
 
 interface QuoteItem {
@@ -92,7 +92,7 @@ export default function NewQuotePage() {
             const supabase = createClient();
             const { error } = await supabase.from('quotes').insert({
                 deal_id: selectedDealId,
-                items: items,
+                items: items as any,
                 subtotal,
                 tax_rate: taxRate,
                 tax_amount: tax,

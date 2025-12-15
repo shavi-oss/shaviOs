@@ -7,7 +7,7 @@
 -- 1. Unified Ad Campaigns (Stores data from Meta, Google, TikTok, etc.)
 CREATE TABLE IF NOT EXISTS ad_campaigns (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    platform TEXT NOT NULL CHECK (platform IN ('meta', 'google', 'linkedin', 'tiktok', 'snapchat', 'twitter')),
+    platform TEXT NOT NULL CHECK (platform IN ('meta', 'instagram', 'google', 'linkedin', 'tiktok', 'snapchat', 'twitter')),
     external_id TEXT NOT NULL, -- ID on the platform (e.g., 23849102...)
     name TEXT NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('active', 'paused', 'archived', 'completed')),

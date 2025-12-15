@@ -17,11 +17,11 @@ import {
 
 interface NotificationChannel {
     id: string;
-    channel: 'telegram' | 'whatsapp' | 'email';
+    channel: 'telegram' | 'whatsapp' | 'email' | string; // Allow generic string to match DB text type
     name: string;
     config: any;
-    is_active: boolean;
-    events: string[];
+    is_active: boolean | null;
+    events: string[] | null;
 }
 
 export default function NotificationsPage() {
@@ -120,8 +120,8 @@ export default function NotificationsPage() {
                                         <input
                                             type="checkbox"
                                             className="sr-only peer"
-                                            checked={channel.is_active}
-                                            onChange={() => handleToggle(channel.id, channel.is_active)}
+                                            checked={!!channel.is_active}
+                                            onChange={() => handleToggle(channel.id, !!channel.is_active)}
                                         />
                                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/30 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
                                     </label>

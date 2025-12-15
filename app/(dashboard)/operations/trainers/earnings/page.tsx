@@ -54,19 +54,19 @@ export default function EarningsPage() {
 
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-4 rounded-xl border border-green-200 dark:border-green-800">
+                <div className="bg-linear-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-4 rounded-xl border border-green-200 dark:border-green-800">
                     <div className="text-2xl font-black text-green-600">${(stats.total_this_month / 1000).toFixed(1)}K</div>
                     <div className="text-xs text-green-700 dark:text-green-400 font-medium mt-1">Total This Month</div>
                 </div>
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 rounded-xl border border-blue-200 dark:border-blue-800">
+                <div className="bg-linear-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 rounded-xl border border-blue-200 dark:border-blue-800">
                     <div className="text-2xl font-black text-blue-600">${(stats.approved / 1000).toFixed(1)}K</div>
                     <div className="text-xs text-blue-700 dark:text-blue-400 font-medium mt-1">Approved</div>
                 </div>
-                <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 p-4 rounded-xl border border-orange-200 dark:border-orange-800">
+                <div className="bg-linear-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 p-4 rounded-xl border border-orange-200 dark:border-orange-800">
                     <div className="text-2xl font-black text-orange-600">${(stats.pending / 1000).toFixed(1)}K</div>
                     <div className="text-xs text-orange-700 dark:text-orange-400 font-medium mt-1">Pending</div>
                 </div>
-                <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-4 rounded-xl border border-purple-200 dark:border-purple-800">
+                <div className="bg-linear-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-4 rounded-xl border border-purple-200 dark:border-purple-800">
                     <div className="text-2xl font-black text-purple-600">{stats.sessions}</div>
                     <div className="text-xs text-purple-700 dark:text-purple-400 font-medium mt-1">Sessions</div>
                 </div>
@@ -105,7 +105,7 @@ export default function EarningsPage() {
                             <tr key={earning.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50">
                                 <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">{earning.session}</td>
                                 <td className="py-3 px-4 text-sm text-gray-600">
-                                    {new Date(earning.date).toLocaleDateString()}
+                                    {new Date(earning.date).toISOString().split('T')[0]}
                                 </td>
                                 <td className="py-3 px-4 text-center text-sm font-bold">{earning.students}</td>
                                 <td className="py-3 px-4 text-right text-lg font-black text-green-600">

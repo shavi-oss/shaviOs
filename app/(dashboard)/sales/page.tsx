@@ -39,7 +39,7 @@ export default function SalesDashboard() {
                     .select('id, value, stage, currency');
 
                 if (error) {
-                    console.error('Error fetching deals:', error);
+                    console.warn('Unable to fetch deals (table may be empty or inaccessible):', error.message || 'No details');
                     setStats({
                         totalRevenue: 0,
                         activeDeals: 0,

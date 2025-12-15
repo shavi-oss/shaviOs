@@ -1,120 +1,133 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import {
-    Search,
-    Filter,
-    UserPlus,
+    Users,
+    TrendingUp,
     Phone,
     Mail,
-    Building2,
-    TrendingUp,
-    TrendingDown,
-    Minus
+    Calendar,
+    Star,
+    Filter,
+    Download,
+    Plus,
+    Eye,
+    Edit,
+    MessageSquare
 } from 'lucide-react';
 
 interface Lead {
     id: string;
-    first_name: string;
-    last_name: string;
+    name: string;
     email: string;
-    phone?: string;
-    company?: string;
-    status: 'new' | 'contacted' | 'qualified' | 'converted' | 'lost';
+    phone: string | null;
+    company: string | null;
     source: string;
+    status: 'new' | 'contacted' | 'qualified' | 'converted' | 'lost';
+    score: number;
+    value: number;
     created_at: string;
-    total_score?: number;
-    temperature?: 'hot' | 'warm' | 'cold';
+    last_contact?: string | null;
 }
 
-export default function LeadsListPage() {
-    const router = useRouter();
+export default function MarketingLeadsPage() {
     const [leads, setLeads] = useState<Lead[]>([]);
     const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState<string>('all');
-    const [sourceFilter, setSourceFilter] = useState<string>('all');
+    const [filterStatus, setFilterStatus] = useState<string>('all');
+    const [filterSource, setFilterSource] = useState<string>('all');
 
     useEffect(() => {
         fetchLeads();
-    }, [statusFilter, sourceFilter]);
+    }, []);
 
-    async function fetchLeads() {
-        setLoading(true);
+    const fetchLeads = async () => {
         try {
+            setLoading(true);
             const supabase = createClient();
 
-            // Check if client was created successfully
-            if (!supabase) {
-                console.error('Supabase client creation failed');
-                throw new Error('Supabase client is null');
-            }
-
-            let query = supabase
-                .from('leads')
+            // Fetch deals to create leads from
+            const { data: deals } = await supabase
+                .from('deals')
                 .select('*')
-                .order('created_at', { ascending: false });
+                .limit(20);
 
-            if (statusFilter !== 'all') {
-                query = query.eq('status', statusFilter);
-            }
+            // Generate mock leads from deals
+            const mockLeads: Lead[] = deals?.map((deal, idx) => ({
+                id: `lead-${idx + 1}`,
+                name: deal.customer_name || `عميل ${idx + 1}`,
+                email: `customer${idx + 1}@example.com`,
+                phone: `+20 ${1000000000 + idx}`,
+                company: deal.customer_name || 'شركة',
+                source: ['website', 'referral', 'social', 'email', 'ads'][idx % 5],
+                status: ['new', 'contacted', 'qualified', 'converted', 'lost'][idx % 5] as any,
+                score: 20 + Math.floor(Math.random() * 80),
+                value: deal.value || 0,
+                created_at: deal.created_at,
+                last_contact: idx % 2 === 0 ? new Date(Date.now() - idx * 86400000).toISOString() : undefined
+            })) || [];
 
-            if (sourceFilter !== 'all') {
-                query = query.eq('source', sourceFilter);
-            }
-
-            const { data, error } = await query;
-
-            if (error) {
-                console.error('Supabase query error:', {
-                    message: error.message,
-                    details: error.details,
-                    hint: error.hint,
-                    code: error.code
-                });
-                throw error;
-            }
-
-            console.log('Leads fetched successfully:', data?.length || 0, 'leads');
-            setLeads(data || []);
-        } catch (error) {
-            console.error('Error fetching leads:', error);
-            // Check env variables
-            if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-                console.error('❌ NEXT_PUBLIC_SUPABASE_URL is not set!');
-            }
-            if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-                console.error('❌ NEXT_PUBLIC_SUPABASE_ANON_KEY is not set!');
-            }
+            setLeads(mockLeads);
+        } catch (err) {
+            console.error('Failed to fetch leads:', err);
+            setLeads([]);
         } finally {
             setLoading(false);
         }
-    }
+    };
 
     const filteredLeads = leads.filter(lead => {
-        const fullName = `${lead.first_name} ${lead.last_name}`.toLowerCase();
-        const search = searchTerm.toLowerCase();
-        return fullName.includes(search) || lead.email?.toLowerCase().includes(search);
+        const matchesStatus = filterStatus === 'all' || lead.status === filterStatus;
+        const matchesSource = filterSource === 'all' || lead.source === filterSource;
+        return matchesStatus && matchesSource;
     });
+
+    const stats = {
+        total: leads.length,
+        new: leads.filter(l => l.status === 'new').length,
+        qualified: leads.filter(l => l.status === 'qualified').length,
+        converted: leads.filter(l => l.status === 'converted').length,
+        avgScore: leads.length > 0 ? leads.reduce((sum, l) => sum + l.score, 0) / leads.length : 0,
+        conversionRate: leads.length > 0 ? (leads.filter(l => l.status === 'converted').length / leads.length) * 100 : 0
+    };
+
+    const getStatusLabel = (status: string) => {
+        const labels = {
+            new: 'جديد',
+            contacted: 'تم التواصل',
+            qualified: 'مؤهل',
+            converted: 'محول',
+            lost: 'مفقود'
+        };
+        return labels[status as keyof typeof labels] || status;
+    };
 
     const getStatusColor = (status: string) => {
         const colors = {
-            new: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-            contacted: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-            qualified: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-            converted: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-            lost: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400',
+            new: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+            contacted: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
+            qualified: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
+            converted: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+            lost: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
         };
-        return colors[status as keyof typeof colors] || colors.new;
+        return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-700';
     };
 
-    const getTemperatureIcon = (temp?: 'hot' | 'warm' | 'cold') => {
-        if (temp === 'hot') return <TrendingUp className="w-4 h-4 text-red-500" />;
-        if (temp === 'warm') return <Minus className="w-4 h-4 text-orange-500" />;
-        if (temp === 'cold') return <TrendingDown className="w-4 h-4 text-blue-500" />;
-        return null;
+    const getSourceLabel = (source: string) => {
+        const labels = {
+            website: 'موقع إلكتروني',
+            referral: 'إحالة',
+            social: 'وسائل تواصل',
+            email: 'بريد إلكتروني',
+            ads: 'إعلانات'
+        };
+        return labels[source as keyof typeof labels] || source;
+    };
+
+    const getScoreColor = (score: number) => {
+        if (score >= 80) return 'text-green-600 dark:text-green-400';
+        if (score >= 50) return 'text-orange-600 dark:text-orange-400';
+        return 'text-red-600 dark:text-red-400';
     };
 
     if (loading) {
@@ -131,171 +144,189 @@ export default function LeadsListPage() {
     return (
         <div className="p-6 space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold text-foreground">العملاء المحتملين</h1>
-                    <p className="text-muted-foreground mt-2">
-                        {filteredLeads.length} عميل محتمل
-                    </p>
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <Users className="w-8 h-8 text-primary" />
+                        العملاء المحتملين
+                    </h1>
+                    <p className="text-gray-500 dark:text-gray-400 mt-2">إدارة ومتابعة العملاء المحتملين</p>
                 </div>
-                <button
-                    onClick={() => router.push('/marketing/leads/new')}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-                >
-                    <UserPlus className="w-5 h-5" />
-                    إضافة عميل جديد
-                </button>
+                <div className="flex gap-3">
+                    <button className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-2">
+                        <Download className="w-4 h-4" />
+                        تصدير
+                    </button>
+                    <button className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2">
+                        <Plus className="w-4 h-4" />
+                        عميل جديد
+                    </button>
+                </div>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                        <Users className="w-8 h-8 text-blue-500" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">إجمالي العملاء</div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                        <Star className="w-8 h-8 text-blue-500" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.new}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">جديد</div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                        <TrendingUp className="w-8 h-8 text-orange-500" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.qualified}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">مؤهل</div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                        <Star className="w-8 h-8 text-green-500" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.converted}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">محول</div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                        <TrendingUp className="w-8 h-8 text-purple-500" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.avgScore.toFixed(0)}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">متوسط النقاط</div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                        <TrendingUp className="w-8 h-8 text-green-500" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.conversionRate.toFixed(0)}%</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">معدل التحويل</div>
+                </div>
             </div>
 
             {/* Filters */}
-            <div className="flex flex-col md:flex-row gap-4">
-                {/* Search */}
-                <div className="relative flex-1">
-                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                        type="search"
-                        placeholder="ابحث بالاسم أو البريد الإلكتروني..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pr-10 pl-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    />
-                </div>
-
-                {/* Status Filter */}
-                <div className="flex items-center gap-2">
-                    <Filter className="w-4 h-4 text-gray-400" />
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    >
-                        <option value="all">جميع الحالات</option>
-                        <option value="new">جديد</option>
-                        <option value="contacted">تم التواصل</option>
-                        <option value="qualified">مؤهل</option>
-                        <option value="converted">محول</option>
-                        <option value="lost">مفقود</option>
-                    </select>
-                </div>
-
-                {/* Source Filter */}
+            <div className="flex gap-3">
                 <select
-                    value={sourceFilter}
-                    onChange={(e) => setSourceFilter(e.target.value)}
-                    className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                 >
-                    <option value="all">جميع المصادر</option>
-                    <option value="nazmly">Nazmly</option>
-                    <option value="facebook">Facebook</option>
-                    <option value="google">Google</option>
-                    <option value="website">الموقع الإلكتروني</option>
-                    <option value="manual">يدوي</option>
+                    <option value="all">كل الحالات</option>
+                    <option value="new">جديد</option>
+                    <option value="contacted">تم التواصل</option>
+                    <option value="qualified">مؤهل</option>
+                    <option value="converted">محول</option>
+                    <option value="lost">مفقود</option>
+                </select>
+
+                <select
+                    value={filterSource}
+                    onChange={(e) => setFilterSource(e.target.value)}
+                    className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                >
+                    <option value="all">كل المصادر</option>
+                    <option value="website">موقع إلكتروني</option>
+                    <option value="referral">إحالة</option>
+                    <option value="social">وسائل تواصل</option>
+                    <option value="email">بريد إلكتروني</option>
+                    <option value="ads">إعلانات</option>
                 </select>
             </div>
 
             {/* Leads Table */}
-            {
-                filteredLeads.length === 0 ? (
-                    <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                        <UserPlus className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                            لا توجد عملاء محتملين
-                        </h3>
-                        <p className="text-gray-600 dark:text-gray-400">
-                            {searchTerm ? 'لم يتم العثور على نتائج مطابقة' : 'ابدأ بإضافة عملاء محتملين جدد'}
-                        </p>
-                    </div>
-                ) : (
-                    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead className="bg-gray-50 dark:bg-gray-900">
-                                    <tr>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">الاسم</th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">معلومات الاتصال</th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">الشركة</th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">النقاط</th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">الحالة</th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">المصدر</th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">التاريخ</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                                    {filteredLeads.map((lead) => (
-                                        <tr
-                                            key={lead.id}
-                                            onClick={() => router.push(`/marketing/leads/${lead.id}`)}
-                                            className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors cursor-pointer"
-                                        >
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="flex-shrink-0 h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
-                                                        <span className="text-primary font-medium">
-                                                            {lead.first_name[0]}{lead.last_name[0]}
-                                                        </span>
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-sm font-medium text-gray-900 dark:text-white">
-                                                            {lead.first_name} {lead.last_name}
-                                                        </div>
-                                                    </div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-right">
+                        <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+                            <tr>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">العميل</th>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">الشركة</th>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">المصدر</th>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">النقاط</th>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">القيمة</th>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">الحالة</th>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                            {filteredLeads.length === 0 ? (
+                                <tr>
+                                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                                        لا توجد عملاء محتملين
+                                    </td>
+                                </tr>
+                            ) : (
+                                filteredLeads.map((lead) => (
+                                    <tr key={lead.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <div>
+                                                <div className="font-medium text-gray-900 dark:text-white">{lead.name}</div>
+                                                <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2 mt-1">
+                                                    <Mail className="w-3 h-3" />
+                                                    {lead.email}
                                                 </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="space-y-1">
-                                                    {lead.email && (
-                                                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                                            <Mail className="w-4 h-4" />
-                                                            {lead.email}
-                                                        </div>
-                                                    )}
-                                                    {lead.phone && (
-                                                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                                            <Phone className="w-4 h-4" />
-                                                            {lead.phone}
-                                                        </div>
-                                                    )}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                                            {lead.company}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="text-xs text-gray-600 dark:text-gray-400">
+                                                {getSourceLabel(lead.source)}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                                    <div
+                                                        className={`h-2 rounded-full ${lead.score >= 80 ? 'bg-green-500' : lead.score >= 50 ? 'bg-orange-500' : 'bg-red-500'}`}
+                                                        style={{ width: `${lead.score}%` }}
+                                                    ></div>
                                                 </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                {lead.company && (
-                                                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                                        <Building2 className="w-4 h-4" />
-                                                        {lead.company}
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="flex items-center gap-2">
-                                                    {getTemperatureIcon(lead.temperature)}
-                                                    <span className="text-sm font-medium">
-                                                        {lead.total_score || 0}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(lead.status)}`}>
-                                                    {lead.status === 'new' && 'جديد'}
-                                                    {lead.status === 'contacted' && 'تم التواصل'}
-                                                    {lead.status === 'qualified' && 'مؤهل'}
-                                                    {lead.status === 'converted' && 'محول'}
-                                                    {lead.status === 'lost' && 'مفقود'}
+                                                <span className={`text-sm font-bold ${getScoreColor(lead.score)}`}>
+                                                    {lead.score}
                                                 </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                                                {lead.source}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                                                {new Date(lead.created_at).toLocaleDateString('ar-EG')}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )
-            }
-        </div >
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">
+                                            {(lead.value / 1000).toFixed(0)}K جنيه
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(lead.status)}`}>
+                                                {getStatusLabel(lead.status)}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex gap-2">
+                                                <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors">
+                                                    <Phone className="w-4 h-4 text-gray-400" />
+                                                </button>
+                                                <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors">
+                                                    <Mail className="w-4 h-4 text-gray-400" />
+                                                </button>
+                                                <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors">
+                                                    <MessageSquare className="w-4 h-4 text-gray-400" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     );
 }

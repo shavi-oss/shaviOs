@@ -19,8 +19,8 @@ import {
 interface Student {
     id: string;
     full_name: string;
-    email: string;
-    phone?: string;
+    email: string | null;
+    phone?: string | null;
     status: 'active' | 'at_risk' | 'completed' | 'paused' | 'dropped';
     enrollment_date: string;
     progress?: number;
@@ -54,7 +54,7 @@ export default function StudentsListPage() {
             const { data, error } = await query;
 
             if (error) throw error;
-            setStudents(data || []);
+            setStudents((data as unknown as Student[]) || []);
         } catch (error) {
             console.error('Error fetching students:', error);
         } finally {
@@ -65,9 +65,9 @@ export default function StudentsListPage() {
     const filteredStudents = students.filter(student => {
         const search = searchTerm.toLowerCase();
         return (
-            student.full_name?.toLowerCase().includes(search) ||
-            student.email?.toLowerCase().includes(search) ||
-            student.phone?.toLowerCase().includes(search)
+            (student.full_name || '').toLowerCase().includes(search) ||
+            (student.email || '').toLowerCase().includes(search) ||
+            (student.phone || '').toLowerCase().includes(search)
         );
     });
 
@@ -238,7 +238,7 @@ export default function StudentsListPage() {
                                 {/* Header */}
                                 <div className="flex items-start justify-between mb-4">
                                     <div className="flex items-center gap-3">
-                                        <div className="flex-shrink-0 h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
+                                        <div className="shrink-0 h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
                                             <span className="text-primary font-medium text-lg">
                                                 {student.full_name?.[0] || 'S'}
                                             </span>
@@ -265,7 +265,7 @@ export default function StudentsListPage() {
                                     )}
                                     {student.phone && (
                                         <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                            <Phone className="w-4 h-4 flex-shrink-0" />
+                                            <Phone className="w-4 h-4 shrink-0" />
                                             {student.phone}
                                         </div>
                                     )}

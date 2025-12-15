@@ -2,6 +2,8 @@
 
 export type UserRole =
     | "admin"
+    | "developer"
+    | "manager"
     | "marketing"
     | "sales"
     | "customer_success"
@@ -52,12 +54,12 @@ export interface Student {
     lead_id?: string;
     nazmly_student_id?: string;
     full_name: string;
-    email?: string;
-    phone?: string;
+    email?: string | null;
+    phone?: string | null;
     enrollment_date: string;
-    current_course_id?: string;
+    current_course_id?: string | null;
     progress_percentage: number;
-    customer_success_agent_id?: string;
+    customer_success_agent_id?: string | null;
     status: StudentStatus;
     created_at: string;
     updated_at: string;

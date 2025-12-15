@@ -49,10 +49,11 @@ CREATE TABLE IF NOT EXISTS system_notifications (
 
 -- 4. Sample Data
 -- Add a task
-INSERT INTO tasks (title, description, priority, status, due_date)
-VALUES 
-    ('Follow up with New Client', 'Call regarding the proposal sent yesterday.', 'high', 'pending', NOW() + INTERVAL '1 day'),
-    ('Prepare Monthly Report', 'Sales report for management.', 'normal', 'pending', NOW() + INTERVAL '3 days');
+-- COMMENTED OUT: Sample data can conflict with existing constraints
+-- INSERT INTO tasks (title, description, priority, status, due_date)
+-- VALUES 
+--     ('Follow up with New Client', 'Call regarding the proposal sent yesterday.', 'high', 'pending', NOW() + INTERVAL '1 day'),
+--     ('Prepare Monthly Report', 'Sales report for management.', 'normal', 'pending', NOW() + INTERVAL '3 days');
 
 -- Add a notification
 -- Note: We can't easily guess a valid user_id here without extensive sub-selects which might fail if empty. 

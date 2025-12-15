@@ -19,30 +19,16 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
+import { Database } from '@/lib/database.types';
+
 // --- Types ---
-interface ClassSession {
-    id: string;
-    title: string;
-    start_time: string;
-    end_time: string;
-    room_id: string;
-    trainer_id: string;
-    room: { name: string };
-    trainer: { first_name: string };
-    meeting_link?: string;
-    meeting_platform?: string;
-    color_code?: string;
-}
+type Room = Database['public']['Tables']['rooms']['Row'];
+type Trainer = Database['public']['Tables']['trainers']['Row'];
 
-interface Room {
-    id: string;
-    name: string;
-}
-
-interface Trainer {
-    id: string;
-    first_name: string;
-    last_name: string;
+// Extended ClassSession with joined fields
+interface ClassSession extends Omit<Database['public']['Tables']['classes']['Row'], 'room' | 'trainer'> {
+    room: { name: string } | null;
+    trainer: { full_name: string } | null;
 }
 
 const TIME_SLOTS = [
@@ -79,20 +65,20 @@ export default function SchedulerPage() {
         meeting_platform: 'zoom'
     });
 
-    useEffect(() => {
-        fetchData();
-    }, []);
-
     const fetchData = async () => {
-        const { data: cls } = await supabase.from('classes').select('*, room:rooms(name), trainer:trainers(first_name)');
-        const { data: rms } = await supabase.from('rooms').select('id, name');
-        const { data: trs } = await supabase.from('trainers').select('id, first_name, last_name');
+        const { data: cls } = await supabase.from('classes').select('*, room:rooms(name), trainer:trainers(full_name)');
+        const { data: rms } = await supabase.from('rooms').select('*');
+        const { data: trs } = await supabase.from('trainers').select('*');
 
-        if (cls) setClasses(cls as any);
+        if (cls) setClasses(cls as unknown as ClassSession[]);
         if (rms) setRooms(rms);
         if (trs) setTrainers(trs);
         setLoading(false);
     };
+
+    useEffect(() => {
+        fetchData();
+    }, []);
 
     // --- Logic ---
 
@@ -233,7 +219,7 @@ export default function SchedulerPage() {
                                             <div className="h-full rounded bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 p-2 shadow-sm cursor-pointer hover:brightness-95 transition-all text-xs">
                                                 <div className="font-bold text-blue-800 dark:text-blue-200 truncate">{session.title}</div>
                                                 <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400 mt-1">
-                                                    <User className="w-3 h-3" /> {session.trainer?.first_name}
+                                                    <User className="w-3 h-3" /> {session.trainer?.full_name}
                                                 </div>
                                                 <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
                                                     <MapPin className="w-3 h-3" /> {session.room?.name}
@@ -282,7 +268,7 @@ export default function SchedulerPage() {
                                         onChange={e => setFormData({ ...formData, trainer_id: e.target.value })}
                                     >
                                         <option value="">Select Trainer</option>
-                                        {trainers.map(t => <option key={t.id} value={t.id}>{t.first_name} {t.last_name}</option>)}
+                                        {trainers.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
                                     </select>
                                 </div>
                                 <div>

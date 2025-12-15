@@ -13,19 +13,16 @@ import {
 interface SalesGoal {
     id: string;
     target_amount: number;
-    current_amount: number;
+    current_amount: number | null;
     start_date: string;
     end_date: string;
     period: string;
+    user_id?: string | null;
 }
 
 export default function SalesTargetsPage() {
     const [goal, setGoal] = useState<SalesGoal | null>(null);
     const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        fetchGoals();
-    }, []);
 
     const fetchGoals = async () => {
         // Fetch the mock goal we inserted in migration, or user specific one
@@ -35,10 +32,14 @@ export default function SalesTargetsPage() {
         setLoading(false);
     };
 
+    useEffect(() => {
+        fetchGoals();
+    }, []);
+
     if (loading) return <div className="p-8 text-center text-gray-500">Loading targets...</div>;
 
-    const progress = goal ? Math.min(100, (goal.current_amount / goal.target_amount) * 100) : 0;
-    const remaining = goal ? goal.target_amount - goal.current_amount : 0;
+    const progress = goal ? Math.min(100, ((goal.current_amount || 0) / goal.target_amount) * 100) : 0;
+    const remaining = goal ? goal.target_amount - (goal.current_amount || 0) : 0;
 
     return (
         <div className="p-6 space-y-8">
@@ -65,7 +66,7 @@ export default function SalesTargetsPage() {
                                     <p className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">THIS {goal.period.toUpperCase()}</p>
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-4xl font-black text-gray-900 dark:text-white">
-                                            {goal.current_amount.toLocaleString()}
+                                            {(goal.current_amount || 0).toLocaleString()}
                                         </span>
                                         <span className="text-gray-400 font-medium">
                                             / {goal.target_amount.toLocaleString()} EGP

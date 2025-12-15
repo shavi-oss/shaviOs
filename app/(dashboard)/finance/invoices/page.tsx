@@ -1,214 +1,298 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import {
     FileText,
-    Plus,
+    DollarSign,
+    Calendar,
     Download,
-    Filter,
-    Search,
-    CheckCircle,
-    Clock,
-    AlertCircle,
-    XCircle,
     Eye,
     Send,
-    Edit
+    CheckCircle,
+    Clock,
+    XCircle,
+    AlertCircle,
+    Plus,
+    Filter
 } from 'lucide-react';
-import Link from 'next/link';
 
 interface Invoice {
     id: string;
     invoice_number: string;
     customer_name: string;
-    customer_id: string;
     amount: number;
-    status: 'draft' | 'issued' | 'paid' | 'pending' | 'overdue';
+    status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
     issue_date: string;
     due_date: string;
-    paid_amount: number;
+    paid_date?: string;
+    items_count: number;
 }
 
-export default function InvoicesPage() {
-    const [filterStatus, setFilterStatus] = useState('all');
-    const [searchQuery, setSearchQuery] = useState('');
+export default function InvoiceManagementPage() {
+    const [invoices, setInvoices] = useState<Invoice[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [filterStatus, setFilterStatus] = useState<string>('all');
 
-    const invoices: Invoice[] = [
-        { id: '1', invoice_number: 'INV-2024-001', customer_name: 'TechCorp Ltd', customer_id: '1', amount: 45000, status: 'paid', issue_date: '2024-12-01', due_date: '2024-12-15', paid_amount: 45000 },
-        { id: '2', invoice_number: 'INV-2024-002', customer_name: 'Digital Solutions', customer_id: '2', amount: 38000, status: 'pending', issue_date: '2024-12-05', due_date: '2024-12-20', paid_amount: 0 },
-        { id: '3', invoice_number: 'INV-2024-003', customer_name: 'Innovation Hub', customer_id: '3', amount: 32000, status: 'overdue', issue_date: '2024-11-25', due_date: '2024-12-10', paid_amount: 0 },
-        { id: '4', invoice_number: 'INV-2024-004', customer_name: 'Smart Systems', customer_id: '4', amount: 29000, status: 'issued', issue_date: '2024-12-08', due_date: '2024-12-22', paid_amount: 0 },
-        { id: '5', invoice_number: 'INV-2024-005', customer_name: 'Cloud Ventures', customer_id: '5', amount: 25000, status: 'paid', issue_date: '2024-12-03', due_date: '2024-12-18', paid_amount: 25000 },
-        { id: '6', invoice_number: 'INV-2024-006', customer_name: 'TechCorp Ltd', customer_id: '1', amount: 52000, status: 'pending', issue_date: '2024-12-10', due_date: '2024-12-25', paid_amount: 0 }
-    ];
+    useEffect(() => {
+        fetchInvoices();
+    }, []);
+
+    const fetchInvoices = async () => {
+        try {
+            setLoading(true);
+            const supabase = createClient();
+
+            // Fetch deals to create invoices from
+            const { data: deals } = await supabase
+                .from('deals')
+                .select('*')
+                .limit(20);
+
+            // Generate mock invoices
+            const mockInvoices: Invoice[] = deals?.map((deal, idx) => {
+                const issueDate = new Date(deal.created_at);
+                const dueDate = new Date(issueDate);
+                dueDate.setDate(dueDate.getDate() + 30);
+
+                const statuses: Array<'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled'> =
+                    ['draft', 'sent', 'paid', 'overdue', 'cancelled'];
+                const status = statuses[idx % 5];
+
+                return {
+                    id: `inv-${idx + 1}`,
+                    invoice_number: `INV-2025-${String(idx + 1).padStart(4, '0')}`,
+                    customer_name: deal.customer_name || 'عميل',
+                    amount: deal.value || 0,
+                    status,
+                    issue_date: issueDate.toISOString(),
+                    due_date: dueDate.toISOString(),
+                    paid_date: status === 'paid' ? new Date().toISOString() : undefined,
+                    items_count: 3 + (idx % 5)
+                };
+            }) || [];
+
+            setInvoices(mockInvoices);
+        } catch (err) {
+            console.error('Failed to fetch invoices:', err);
+            setInvoices([]);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const filteredInvoices = invoices.filter(inv => {
-        const matchesSearch = inv.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            inv.invoice_number.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesStatus = filterStatus === 'all' || inv.status === filterStatus;
-        return matchesSearch && matchesStatus;
+        if (filterStatus === 'all') return true;
+        return inv.status === filterStatus;
     });
 
     const stats = {
-        total: invoices.length,
-        total_amount: invoices.reduce((sum, inv) => sum + inv.amount, 0),
-        issued: invoices.filter(i => i.status === 'issued').length,
-        paid: invoices.filter(i => i.status === 'paid').length,
-        paid_amount: invoices.filter(i => i.status === 'paid').reduce((sum, inv) => sum + inv.paid_amount, 0),
-        pending: invoices.filter(i => i.status === 'pending').length,
-        overdue: invoices.filter(i => i.status === 'overdue').length
+        total: invoices.reduce((sum, i) => sum + i.amount, 0),
+        paid: invoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.amount, 0),
+        pending: invoices.filter(i => ['sent', 'overdue'].includes(i.status)).reduce((sum, i) => sum + i.amount, 0),
+        overdue: invoices.filter(i => i.status === 'overdue').length,
+        draft: invoices.filter(i => i.status === 'draft').length
     };
 
-    const getStatusBadge = (status: string) => {
-        const badges = {
-            draft: { bg: 'bg-gray-100', text: 'text-gray-700', icon: <Edit className="w-3 h-3" /> },
-            issued: { bg: 'bg-blue-100', text: 'text-blue-700', icon: <FileText className="w-3 h-3" /> },
-            paid: { bg: 'bg-green-100', text: 'text-green-700', icon: <CheckCircle className="w-3 h-3" /> },
-            pending: { bg: 'bg-orange-100', text: 'text-orange-700', icon: <Clock className="w-3 h-3" /> },
-            overdue: { bg: 'bg-red-100', text: 'text-red-700', icon: <AlertCircle className="w-3 h-3" /> }
-        };
-        const badge = badges[status as keyof typeof badges] || badges.draft;
-        return (
-            <span className={`px-2 py-0.5 ${badge.bg} ${badge.text} rounded-full text-xs font-bold flex items-center gap-1 w-fit`}>
-                {badge.icon} {status.charAt(0).toUpperCase() + status.slice(1)}
-            </span>
-        );
+    const getStatusIcon = (status: string) => {
+        switch (status) {
+            case 'paid': return <CheckCircle className="w-4 h-4 text-green-500" />;
+            case 'sent': return <Send className="w-4 h-4 text-blue-500" />;
+            case 'overdue': return <AlertCircle className="w-4 h-4 text-red-500" />;
+            case 'cancelled': return <XCircle className="w-4 h-4 text-gray-500" />;
+            default: return <Clock className="w-4 h-4 text-gray-500" />;
+        }
     };
+
+    const getStatusLabel = (status: string) => {
+        const labels = {
+            draft: 'مسودة',
+            sent: 'مرسلة',
+            paid: 'مدفوعة',
+            overdue: 'متأخرة',
+            cancelled: 'ملغاة'
+        };
+        return labels[status as keyof typeof labels] || status;
+    };
+
+    const getStatusColor = (status: string) => {
+        const colors = {
+            draft: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300',
+            sent: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+            paid: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+            overdue: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+            cancelled: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300'
+        };
+        return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-700';
+    };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                    <p className="mt-4 text-gray-600 dark:text-gray-400">جاري تحميل الفواتير...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="p-6 space-y-6">
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-bold flex items-center gap-2">
-                        <FileText className="w-6 h-6 text-primary" />
-                        Invoices
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <FileText className="w-8 h-8 text-primary" />
+                        إدارة الفواتير
                     </h1>
-                    <p className="text-gray-500 text-sm mt-1">Manage customer invoices and payments</p>
+                    <p className="text-gray-500 dark:text-gray-400 mt-2">متابعة وإدارة الفواتير</p>
                 </div>
-                <div className="flex gap-2">
-                    <button className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-bold flex items-center gap-2">
-                        <Download className="w-4 h-4" /> Export
-                    </button>
-                    <Link href="/finance/invoices/new" className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90 flex items-center gap-2">
-                        <Plus className="w-4 h-4" /> Create Invoice
-                    </Link>
-                </div>
+                <button className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2">
+                    <Plus className="w-4 h-4" />
+                    فاتورة جديدة
+                </button>
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
-                    <div className="text-2xl font-black text-gray-900 dark:text-white">{stats.total}</div>
-                    <div className="text-xs text-gray-500 font-medium mt-1">Total Invoices</div>
-                    <div className="text-xs text-gray-400 mt-1">${(stats.total_amount / 1000).toFixed(0)}K</div>
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                        <DollarSign className="w-8 h-8 text-blue-500" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {(stats.total / 1000).toFixed(0)}K
+                    </div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">إجمالي الفواتير</div>
                 </div>
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-200 dark:border-blue-800">
-                    <div className="text-2xl font-black text-blue-600">{stats.issued}</div>
-                    <div className="text-xs text-blue-700 dark:text-blue-400 font-medium mt-1">Issued</div>
+
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                        <CheckCircle className="w-8 h-8 text-green-500" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {(stats.paid / 1000).toFixed(0)}K
+                    </div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">مدفوعة</div>
                 </div>
-                <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl border border-green-200 dark:border-green-800">
-                    <div className="text-2xl font-black text-green-600">{stats.paid}</div>
-                    <div className="text-xs text-green-700 dark:text-green-400 font-medium mt-1">Paid</div>
-                    <div className="text-xs text-green-600 mt-1">${(stats.paid_amount / 1000).toFixed(0)}K</div>
+
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                        <Clock className="w-8 h-8 text-orange-500" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {(stats.pending / 1000).toFixed(0)}K
+                    </div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">معلقة</div>
                 </div>
-                <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl border border-orange-200 dark:border-orange-800">
-                    <div className="text-2xl font-black text-orange-600">{stats.pending}</div>
-                    <div className="text-xs text-orange-700 dark:text-orange-400 font-medium mt-1">Pending</div>
+
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                        <AlertCircle className="w-8 h-8 text-red-500" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.overdue}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">متأخرة</div>
                 </div>
-                <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-200 dark:border-red-800">
-                    <div className="text-2xl font-black text-red-600">{stats.overdue}</div>
-                    <div className="text-xs text-red-700 dark:text-red-400 font-medium mt-1">🚨 Overdue</div>
+
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                        <FileText className="w-8 h-8 text-gray-500" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.draft}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">مسودات</div>
                 </div>
             </div>
 
-            {/* Filters & Search */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                    {/* Search */}
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Search by customer or invoice number..."
-                            className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-900 border-0 rounded-lg text-sm"
-                        />
-                    </div>
-
-                    {/* Status Filter */}
-                    <div className="flex gap-2">
-                        {['all', 'issued', 'paid', 'pending', 'overdue'].map(status => (
-                            <button
-                                key={status}
-                                onClick={() => setFilterStatus(status)}
-                                className={`px-3 py-2 rounded-lg text-sm font-bold capitalize transition-all ${filterStatus === status
-                                        ? 'bg-primary text-white'
-                                        : 'bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300'
-                                    }`}
-                            >
-                                {status}
-                            </button>
-                        ))}
-                    </div>
-                </div>
+            {/* Filters */}
+            <div className="flex gap-3">
+                <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                >
+                    <option value="all">كل الحالات</option>
+                    <option value="draft">مسودات</option>
+                    <option value="sent">مرسلة</option>
+                    <option value="paid">مدفوعة</option>
+                    <option value="overdue">متأخرة</option>
+                    <option value="cancelled">ملغاة</option>
+                </select>
             </div>
 
             {/* Invoices Table */}
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <table className="w-full">
-                    <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-                        <tr>
-                            <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase">Invoice #</th>
-                            <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase">Customer</th>
-                            <th className="text-right py-3 px-4 text-xs font-bold text-gray-500 uppercase">Amount</th>
-                            <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase">Issue Date</th>
-                            <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase">Due Date</th>
-                            <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase">Status</th>
-                            <th className="text-right py-3 px-4 text-xs font-bold text-gray-500 uppercase">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredInvoices.map(invoice => (
-                            <tr key={invoice.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50">
-                                <td className="py-3 px-4 font-mono text-sm font-bold text-blue-600">{invoice.invoice_number}</td>
-                                <td className="py-3 px-4">
-                                    <Link href={`/finance/customers/${invoice.customer_id}`} className="font-medium text-gray-900 dark:text-white hover:text-primary">
-                                        {invoice.customer_name}
-                                    </Link>
-                                </td>
-                                <td className="py-3 px-4 text-right text-lg font-black text-gray-900 dark:text-white">
-                                    ${invoice.amount.toLocaleString()}
-                                </td>
-                                <td className="py-3 px-4 text-sm text-gray-600">
-                                    {new Date(invoice.issue_date).toLocaleDateString()}
-                                </td>
-                                <td className="py-3 px-4 text-sm text-gray-600">
-                                    {new Date(invoice.due_date).toLocaleDateString()}
-                                </td>
-                                <td className="py-3 px-4">
-                                    {getStatusBadge(invoice.status)}
-                                </td>
-                                <td className="py-3 px-4 text-right">
-                                    <div className="flex justify-end gap-2">
-                                        <button className="p-1 hover:bg-gray-100 rounded" title="View">
-                                            <Eye className="w-4 h-4 text-gray-600" />
-                                        </button>
-                                        <button className="p-1 hover:bg-gray-100 rounded" title="Download PDF">
-                                            <Download className="w-4 h-4 text-gray-600" />
-                                        </button>
-                                        {invoice.status === 'pending' && (
-                                            <button className="p-1 hover:bg-gray-100 rounded" title="Send">
-                                                <Send className="w-4 h-4 text-blue-600" />
-                                            </button>
-                                        )}
-                                    </div>
-                                </td>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-right">
+                        <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+                            <tr>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">رقم الفاتورة</th>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">العميل</th>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">المبلغ</th>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">تاريخ الإصدار</th>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">تاريخ الاستحقاق</th>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">الحالة</th>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">إجراءات</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                            {filteredInvoices.length === 0 ? (
+                                <tr>
+                                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                                        لا توجد فواتير
+                                    </td>
+                                </tr>
+                            ) : (
+                                filteredInvoices.map((invoice) => (
+                                    <tr key={invoice.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <div className="font-medium text-gray-900 dark:text-white">
+                                                {invoice.invoice_number}
+                                            </div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                                                {invoice.items_count} عنصر
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                                            {invoice.customer_name}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="text-lg font-bold text-gray-900 dark:text-white">
+                                                {invoice.amount.toLocaleString('ar-EG')} جنيه
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                                            {new Date(invoice.issue_date).toLocaleDateString('ar-EG')}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                                            {new Date(invoice.due_date).toLocaleDateString('ar-EG')}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-2">
+                                                {getStatusIcon(invoice.status)}
+                                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(invoice.status)}`}>
+                                                    {getStatusLabel(invoice.status)}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex gap-2">
+                                                <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors">
+                                                    <Eye className="w-4 h-4 text-gray-400" />
+                                                </button>
+                                                <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors">
+                                                    <Download className="w-4 h-4 text-gray-400" />
+                                                </button>
+                                                <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors">
+                                                    <Send className="w-4 h-4 text-gray-400" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     );

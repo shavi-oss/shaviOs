@@ -21,23 +21,10 @@ import {
 } from 'lucide-react';
 import { StatCard } from '@/components/dashboard/stat-card';
 
+import { Database } from '@/lib/database.types';
+
 // --- Types ---
-interface TrainerDetails {
-    id: string;
-    first_name: string;
-    last_name: string;
-    specialization: string;
-    email: string;
-    phone: string;
-    bio: string;
-    hourly_rate: number;
-    contract_type: string;
-    experience_years: number;
-    linkedin_url?: string;
-    portfolio_url?: string;
-    cv_url?: string;
-    join_date: string;
-}
+type TrainerDetails = Database['public']['Tables']['trainers']['Row'];
 
 export default function TrainerProfilePage() {
     const { id } = useParams();
@@ -57,16 +44,18 @@ export default function TrainerProfilePage() {
         { name: 'UX Design', level: 3 },
     ];
 
+    const fetchTrainer = async () => {
+        if (!id) return;
+        const idStr = Array.isArray(id) ? id[0] : id;
+        const supabase = createClient();
+        const { data } = await supabase.from('trainers').select('*').eq('id', idStr).single();
+        if (data) setTrainer(data);
+        setLoading(false);
+    };
+
     useEffect(() => {
         if (id) fetchTrainer();
     }, [id]);
-
-    const fetchTrainer = async () => {
-        const supabase = createClient();
-        const { data } = await supabase.from('trainers').select('*').eq('id', id).single();
-        if (data) setTrainer(data as any);
-        setLoading(false);
-    };
 
     if (loading) return <div className="p-10">Loading Profile...</div>;
     if (!trainer) return <div className="p-10">Trainer not found</div>;
@@ -76,14 +65,18 @@ export default function TrainerProfilePage() {
             {/* Header / Profile Card */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col md:flex-row gap-6 items-start">
                 <div className="w-24 h-24 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center text-3xl font-bold text-gray-400 shrink-0">
-                    {trainer.first_name[0]}{trainer.last_name[0]}
+                    {(trainer.full_name || '?').charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1">
                     <div className="flex justify-between items-start">
                         <div>
-                            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">{trainer.first_name} {trainer.last_name}</h1>
+                            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
+                                {trainer.full_name || 'Unknown Trainer'}
+                            </h1>
                             <p className="text-primary font-medium flex items-center gap-2">
-                                {trainer.specialization}
+                                {Array.isArray(trainer.specializations) 
+                                    ? trainer.specializations.join(', ') 
+                                    : trainer.specializations}
                                 <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs px-2 py-0.5 rounded-full capitalize">
                                     {trainer.contract_type}
                                 </span>
@@ -104,7 +97,7 @@ export default function TrainerProfilePage() {
                             <Phone className="w-4 h-4" /> {trainer.phone}
                         </div>
                         <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <Clock className="w-4 h-4" /> Joined {new Date(trainer.join_date).toLocaleDateString()}
+                            <Clock className="w-4 h-4" /> Joined {trainer.join_date ? new Date(trainer.join_date).toLocaleDateString() : 'Date Unknown'}
                         </div>
                         <div className="flex items-center gap-2 text-sm text-gray-500 font-bold text-green-600">
                             <DollarSign className="w-4 h-4" /> {trainer.hourly_rate} EGP/hr

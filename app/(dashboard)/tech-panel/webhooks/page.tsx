@@ -19,9 +19,11 @@ interface Webhook {
     name: string;
     url: string;
     events: string[];
-    is_active: boolean;
-    retry_count: number;
+    is_active: boolean | null;
+    retry_count: number | null;
     created_at: string;
+    secret_header?: string | null;
+    version?: string | null;
 }
 
 export default function WebhooksPage() {
@@ -48,7 +50,7 @@ export default function WebhooksPage() {
         }
     };
 
-    const toggleWebhook = async (id: string, currentState: boolean) => {
+    const toggleWebhook = async (id: string, currentState: boolean | null) => {
         const supabase = createClient();
         await supabase.from('webhooks').update({ is_active: !currentState }).eq('id', id);
         fetchWebhooks(); // Refresh

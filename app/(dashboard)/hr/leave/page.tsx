@@ -1,113 +1,126 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { getLeaveRequests, updateLeaveStatus, type LeaveRequest } from '@/app/actions/hr';
+import { createClient } from '@/lib/supabase/client';
+import { Pagination } from '@/components/ui/pagination';
+import { toast } from 'sonner';
 import {
-    Calendar as CalendarIcon,
+    Calendar,
     Clock,
     CheckCircle,
     XCircle,
-    AlertTriangle,
-    Users,
-    Filter,
-    Download
+    Plus,
+    User,
+    Loader2
 } from 'lucide-react';
-import Link from 'next/link';
+import { TableSkeleton } from '@/components/ui/skeletons';
+import { NewLeaveModal } from './new-leave-modal';
 
-interface LeaveRequest {
-    id: string;
-    employee_name: string;
-    employee_id: string;
-    leave_type: 'annual' | 'sick' | 'emergency' | 'unpaid';
-    start_date: string;
-    end_date: string;
-    days_count: number;
-    reason: string;
-    status: 'pending' | 'approved' | 'rejected';
-    sla_due: string;
-    submitted_at: string;
-}
+const leaveTypes = [
+    { value: 'annual', label: 'إجازة سنوية', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
+    { value: 'sick', label: 'إجازة مرضية', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' },
+    { value: 'emergency', label: 'إجازة طارئة', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' },
+    { value: 'unpaid', label: 'إجازة بدون راتب', color: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300' },
+    { value: 'maternity', label: 'إجازة وضع', color: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300' },
+    { value: 'paternity', label: 'إجازة أبوة', color: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300' },
+];
 
-export default function LeaveManagementPage() {
-    const [filter, setFilter] = useState('all');
+export default function HRLeavePage() {
+    const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [filterStatus, setFilterStatus] = useState<string>('all');
+    const [showNewLeaveModal, setShowNewLeaveModal] = useState(false);
 
-    const requests: LeaveRequest[] = [
-        {
-            id: '1',
-            employee_name: 'Ahmed Hassan',
-            employee_id: '1',
-            leave_type: 'annual',
-            start_date: '2024-12-20',
-            end_date: '2024-12-27',
-            days_count: 7,
-            reason: 'Family vacation',
-            status: 'pending',
-            sla_due: new Date(Date.now() + 5 * 3600000).toISOString(),
-            submitted_at: '2024-12-10'
-        },
-        {
-            id: '2',
-            employee_name: 'Fatima Ali',
-            employee_id: '4',
-            leave_type: 'sick',
-            start_date: '2024-12-11',
-            end_date: '2024-12-12',
-            days_count: 2,
-            reason: 'Medical checkup',
-            status: 'approved',
-            sla_due: '',
-            submitted_at: '2024-12-09'
-        },
-        {
-            id: '3',
-            employee_name: 'Omar Khalid',
-            employee_id: '3',
-            leave_type: 'emergency',
-            start_date: '2024-12-15',
-            end_date: '2024-12-15',
-            days_count: 1,
-            reason: 'Family emergency',
-            status: 'pending',
-            sla_due: new Date(Date.now() + 2 * 3600000).toISOString(),
-            submitted_at: '2024-12-10'
+    // User Context
+    const [userRole, setUserRole] = useState<string | null>(null);
+    const [userId, setUserId] = useState<string | null>(null);
+
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalCount, setTotalCount] = useState(0);
+
+    useEffect(() => {
+        fetchUserProfile();
+        loadLeaves();
+    }, [currentPage, filterStatus]);
+
+    const fetchUserProfile = async () => {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            setUserId(user.id);
+            // Fetch role from profiles table (more secure than metadata for UI conditional)
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('role')
+                .eq('id', user.id)
+                .single();
+            setUserRole(profile?.role || 'user');
         }
-    ];
-
-    const filteredRequests = requests.filter(r => filter === 'all' || r.status === filter);
-
-    const stats = {
-        total: requests.length,
-        pending: requests.filter(r => r.status === 'pending').length,
-        approved: requests.filter(r => r.status === 'approved').length,
-        rejected: requests.filter(r => r.status === 'rejected').length
     };
 
-    const getTimeRemaining = (sla: string) => {
-        if (!sla) return '';
-        const diff = new Date(sla).getTime() - Date.now();
-        const hours = Math.floor(diff / 3600000);
-        const mins = Math.floor((diff % 3600000) / 60000);
-
-        if (diff < 0) return 'Overdue';
-        if (hours < 1) return `${mins}m`;
-        return `${hours}h ${mins}m`;
+    const loadLeaves = async () => {
+        try {
+            setLoading(true);
+            const { data, totalPages: pages, count } = await getLeaveRequests(currentPage, 10, filterStatus);
+            setLeaves(data);
+            setTotalPages(pages);
+            setTotalCount(count);
+        } catch (err) {
+            toast.error('فشل في تحميل طلبات الإجازات');
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const getSLAColor = (sla: string) => {
-        if (!sla) return '';
-        const diff = new Date(sla).getTime() - Date.now();
-        if (diff < 0) return 'text-red-600';
-        if (diff < 3600000) return 'text-orange-600';
-        return 'text-green-600';
+    const handleStatusUpdate = async (id: string, newStatus: 'approved' | 'rejected') => {
+        try {
+            await updateLeaveStatus(id, newStatus);
+            toast.success(newStatus === 'approved' ? 'تمت الموافقة بنجاح' : 'تم الرفض بنجاح');
+            loadLeaves(); // Refresh
+        } catch (err) {
+            toast.error('فشل في تحديث الحالة - تأكد من الرصيد والصلاحيات');
+        }
     };
 
-    const getLeaveTypeBadge = (type: string) => {
-        const badges = {
-            annual: 'bg-blue-100 text-blue-700',
-            sick: 'bg-red-100 text-red-700',
-            emergency: 'bg-orange-100 text-orange-700',
-            unpaid: 'bg-gray-100 text-gray-700'
-        };
-        return badges[type as keyof typeof badges] || badges.annual;
+    const isManagerOrAdmin = () => {
+        return ['admin', 'manager', 'hr', 'hr_manager', 'general_manager'].includes(userRole || '');
+    };
+
+    const getStatusIcon = (status: string) => {
+        switch (status) {
+            case 'approved': return <CheckCircle className="w-4 h-4 text-green-500" />;
+            case 'rejected': return <XCircle className="w-4 h-4 text-red-500" />;
+            default: return <Clock className="w-4 h-4 text-orange-500" />;
+        }
+    };
+
+    const getStatusLabel = (status: string) => {
+        switch (status) {
+            case 'approved': return 'موافق عليها';
+            case 'rejected': return 'مرفوضة';
+            case 'cancelled': return 'ملغاة';
+            default: return 'قيد المراجعة';
+        }
+    };
+
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'approved': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300';
+            case 'rejected': return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300';
+            case 'cancelled': return 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300';
+            default: return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300';
+        }
+    };
+
+    const getLeaveTypeLabel = (type: string) => {
+        return leaveTypes.find(t => t.value === type)?.label || type;
+    };
+
+    const getLeaveTypeColor = (type: string) => {
+        return leaveTypes.find(t => t.value === type)?.color || 'bg-gray-100 text-gray-700';
     };
 
     return (
@@ -115,122 +128,168 @@ export default function LeaveManagementPage() {
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-bold flex items-center gap-2">
-                        <CalendarIcon className="w-6 h-6 text-primary" />
-                        Leave Management
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <Calendar className="w-8 h-8 text-primary" />
+                        إدارة الإجازات
+                        <span className="text-sm font-normal text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full">
+                            {totalCount}
+                        </span>
                     </h1>
-                    <p className="text-gray-500 text-sm mt-1">Approve, reject, and track employee leave requests</p>
+                    <p className="text-gray-500 dark:text-gray-400 mt-2">متابعة وإدارة طلبات الإجازات</p>
                 </div>
-                <div className="flex gap-2">
-                    <button className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-bold flex items-center gap-2">
-                        <Download className="w-4 h-4" /> Export
+                <div className="flex gap-3">
+                    <button
+                        onClick={() => setShowNewLeaveModal(true)}
+                        className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
+                    >
+                        <Plus className="w-4 h-4" />
+                        طلب إجازة جديد
                     </button>
-                    <Link href="/hr/leave/request" className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90">
-                        Request Leave
-                    </Link>
-                </div>
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
-                    <div className="text-2xl font-black text-gray-900 dark:text-white">{stats.total}</div>
-                    <div className="text-xs text-gray-500 font-medium mt-1">Total Requests</div>
-                </div>
-                <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl border border-orange-200 dark:border-orange-800">
-                    <div className="text-2xl font-black text-orange-600">{stats.pending}</div>
-                    <div className="text-xs text-orange-700 dark:text-orange-400 font-medium mt-1">Pending</div>
-                </div>
-                <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl border border-green-200 dark:border-green-800">
-                    <div className="text-2xl font-black text-green-600">{stats.approved}</div>
-                    <div className="text-xs text-green-700 dark:text-green-400 font-medium mt-1">Approved</div>
-                </div>
-                <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-200 dark:border-red-800">
-                    <div className="text-2xl font-black text-red-600">{stats.rejected}</div>
-                    <div className="text-xs text-red-700 dark:text-red-400 font-medium mt-1">Rejected</div>
                 </div>
             </div>
 
             {/* Filters */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                <div className="flex items-center gap-2">
-                    <Filter className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm font-bold">Filter:</span>
-                    {['all', 'pending', 'approved', 'rejected'].map(f => (
-                        <button
-                            key={f}
-                            onClick={() => setFilter(f)}
-                            className={`px-3 py-1 rounded-lg text-sm font-bold capitalize ${filter === f ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300'
-                                }`}
-                        >
-                            {f}
-                        </button>
-                    ))}
+            <div className="flex gap-3 bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                    تصفية حسب الحالة:
                 </div>
+                <select
+                    value={filterStatus}
+                    onChange={(e) => {
+                        setFilterStatus(e.target.value);
+                        setCurrentPage(1); // Reset page on filter change
+                    }}
+                    className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary/20 outline-none"
+                >
+                    <option value="all">كل الحالات</option>
+                    <option value="pending">قيد المراجعة</option>
+                    <option value="approved">موافق عليها</option>
+                    <option value="rejected">مرفوضة</option>
+                </select>
             </div>
 
-            {/* Requests List */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <table className="w-full">
-                    <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-                        <tr>
-                            <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase">Employee</th>
-                            <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase">Type</th>
-                            <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase">Dates</th>
-                            <th className="text-center py-3 px-4 text-xs font-bold text-gray-500 uppercase">Days</th>
-                            <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase">SLA</th>
-                            <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase">Status</th>
-                            <th className="text-right py-3 px-4 text-xs font-bold text-gray-500 uppercase">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredRequests.map(request => (
-                            <tr key={request.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50">
-                                <td className="py-3 px-4">
-                                    <Link href={`/hr/employees/${request.employee_id}`} className="font-medium text-gray-900 dark:text-white hover:text-primary">
-                                        {request.employee_name}
-                                    </Link>
-                                    <div className="text-xs text-gray-500">Submitted {request.submitted_at}</div>
-                                </td>
-                                <td className="py-3 px-4">
-                                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold capitalize ${getLeaveTypeBadge(request.leave_type)}`}>
-                                        {request.leave_type}
-                                    </span>
-                                </td>
-                                <td className="py-3 px-4 text-sm">
-                                    {new Date(request.start_date).toLocaleDateString()} - {new Date(request.end_date).toLocaleDateString()}
-                                </td>
-                                <td className="py-3 px-4 text-center font-bold">{request.days_count}</td>
-                                <td className="py-3 px-4">
-                                    {request.status === 'pending' && request.sla_due && (
-                                        <span className={`flex items-center gap-1 text-sm font-bold ${getSLAColor(request.sla_due)}`}>
-                                            <Clock className="w-3 h-3" />
-                                            {getTimeRemaining(request.sla_due)}
-                                        </span>
+            {/* Leave Requests Table */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden min-h-[400px]">
+                {loading ? (
+                    <div className="p-6">
+                        <TableSkeleton rows={5} columns={7} />
+                    </div>
+                ) : (
+                    <>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-right">
+                                <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+                                    <tr>
+                                        <th className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">الموظف</th>
+                                        <th className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">نوع الإجازة</th>
+                                        <th className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">من</th>
+                                        <th className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">إلى</th>
+                                        <th className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">الأيام</th>
+                                        <th className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">الحالة</th>
+                                        <th className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">إجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                    {leaves.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={7} className="px-6 py-24 text-center">
+                                                <div className="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
+                                                    <Calendar className="w-12 h-12 mb-4 opacity-20" />
+                                                    <p>لا توجد طلبات إجازة تطابق البحث</p>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        leaves.map((leave) => (
+                                            <tr key={leave.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                                            <User className="w-4 h-4 text-primary" />
+                                                        </div>
+                                                        <div>
+                                                            <div className="font-medium text-gray-900 dark:text-white">
+                                                                {leave.employee.first_name} {leave.employee.last_name}
+                                                            </div>
+                                                            <div className="text-xs text-gray-500">
+                                                                {leave.department || 'غير محدد'}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getLeaveTypeColor(leave.type)}`}>
+                                                        {getLeaveTypeLabel(leave.type)}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                                                    {new Date(leave.start_date).toLocaleDateString('ar-EG')}
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                                                    {new Date(leave.end_date).toLocaleDateString('ar-EG')}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="font-bold text-gray-900 dark:text-white">{leave.days}</span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-2">
+                                                        {getStatusIcon(leave.status)}
+                                                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(leave.status)}`}>
+                                                            {getStatusLabel(leave.status)}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {leave.status === 'pending' && isManagerOrAdmin() ? (
+                                                        <div className="flex gap-2">
+                                                            <button
+                                                                onClick={() => handleStatusUpdate(leave.id, 'approved')}
+                                                                className="px-3 py-1 text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
+                                                            >
+                                                                موافقة
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleStatusUpdate(leave.id, 'rejected')}
+                                                                className="px-3 py-1 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
+                                                            >
+                                                                رفض
+                                                            </button>
+                                                        </div>
+                                                    ) : leave.status === 'pending' ? (
+                                                        <span className="text-xs text-gray-400">في انتظار المراجعة</span>
+                                                    ) : (
+                                                        <span className="text-xs text-gray-400">
+                                                            تم الرد بواسطة {leave.status === 'approved' ? 'الإدارة' : 'الإدارة'}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))
                                     )}
-                                </td>
-                                <td className="py-3 px-4">
-                                    {request.status === 'pending' && <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-bold">Pending</span>}
-                                    {request.status === 'approved' && <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-bold flex items-center gap-1 w-fit"><CheckCircle className="w-3 h-3" /> Approved</span>}
-                                    {request.status === 'rejected' && <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-bold">Rejected</span>}
-                                </td>
-                                <td className="py-3 px-4 text-right">
-                                    {request.status === 'pending' && (
-                                        <div className="flex justify-end gap-2">
-                                            <button className="px-3 py-1 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700">
-                                                ✓ Approve
-                                            </button>
-                                            <button className="px-3 py-1 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700">
-                                                ✗ Reject
-                                            </button>
-                                        </div>
-                                    )}
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Pagination Footer */}
+                        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+                            <Pagination
+                                currentPage={currentPage}
+                                totalPages={totalPages}
+                                onPageChange={setCurrentPage}
+                            />
+                        </div>
+                    </>
+                )}
             </div>
+
+            {/* New Leave Modal */}
+            <NewLeaveModal
+                open={showNewLeaveModal}
+                onClose={() => setShowNewLeaveModal(false)}
+                onSuccess={() => {
+                    loadLeaves();
+                }}
+            />
         </div>
     );
 }

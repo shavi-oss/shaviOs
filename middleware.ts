@@ -1,5 +1,13 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { RateLimiter } from './lib/rate-limit'
+
+// Initialize Rate Limiter
+// Limit: 500 unique tokens (IPs) per minute
+const limiter = new RateLimiter({
+    uniqueTokenPerInterval: 500,
+    interval: 60000,
+})
 
 export async function middleware(request: NextRequest) {
     let response = NextResponse.next({
@@ -7,6 +15,22 @@ export async function middleware(request: NextRequest) {
             headers: request.headers,
         },
     })
+
+    // 0. RATE LIMITING (Spam Protection)
+    const ip = request.headers.get('x-forwarded-for') || 'unknown-ip'
+    const path = request.nextUrl.pathname
+
+    // Apply strict limit to API and Auth routes (20 requests per minute)
+    if (path.startsWith('/api') || path.startsWith('/login') || path.startsWith('/signup')) {
+        try {
+            await limiter.check(20, ip)
+        } catch {
+            return NextResponse.json(
+                { error: 'Rate limit exceeded. Please try again later.' },
+                { status: 429 }
+            )
+        }
+    }
 
     // Create a Supabase client configured for middleware
     const supabase = createServerClient(
@@ -45,8 +69,6 @@ export async function middleware(request: NextRequest) {
         data: { user },
     } = await supabase.auth.getUser()
 
-    const path = request.nextUrl.pathname
-
     // 2. Protect /tech-panel Routes
     if (path.startsWith('/tech-panel')) {
         // If not logged in, redirect to login
@@ -80,7 +102,7 @@ export async function middleware(request: NextRequest) {
             if (currentPath.startsWith('/hr') && role !== 'hr') {
                 return NextResponse.redirect(new URL('/dashboard', request.url));
             }
-            if (currentPath.startsWith('/finance') && role !== 'hr') { // HR handles payroll
+            if (currentPath.startsWith('/finance') && role !== 'finance') {
                 return NextResponse.redirect(new URL('/dashboard', request.url));
             }
             if (currentPath.startsWith('/sales') && role !== 'sales') {

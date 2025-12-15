@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyCredentials, createSession } from "@/lib/auth";
+import { logger } from "@/lib/logger";
+import { successResponse, errorResponse } from "@/lib/api-response";
 
 export async function POST(request: NextRequest) {
     try {
@@ -7,29 +9,23 @@ export async function POST(request: NextRequest) {
         const { email, password } = body;
 
         if (!email || !password) {
-            return NextResponse.json(
-                { error: "Email and password are required" },
-                { status: 400 }
-            );
+            return errorResponse("Email and password are required", 400);
         }
 
         const user = await verifyCredentials(email, password);
 
         if (!user) {
-            return NextResponse.json(
-                { error: "Invalid email or password" },
-                { status: 401 }
-            );
+            // Warn log for security monitoring
+            logger.warn("Failed login attempt", { email });
+            return errorResponse("Invalid email or password", 401);
         }
 
         await createSession(user);
 
-        return NextResponse.json({ user }, { status: 200 });
+        logger.info("User logged in", { userId: user.id, email: user.email });
+        return successResponse({ user });
     } catch (error) {
-        console.error("Login error:", error);
-        return NextResponse.json(
-            { error: "An error occurred during login" },
-            { status: 500 }
-        );
+        logger.error("Login error", { error });
+        return errorResponse("An error occurred during login", 500);
     }
 }

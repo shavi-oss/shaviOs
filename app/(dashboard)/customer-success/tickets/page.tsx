@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { getTickets } from '@/app/actions/tickets';
+import NewTicketModal from './new-ticket-modal';
 import {
     Filter,
     LayoutGrid,
     List as ListIcon,
-    Plus,
+    // Plus, // Removed as it's in the modal
     Search,
     Clock,
     User,
@@ -16,7 +18,7 @@ import {
 
 interface Ticket {
     id: string;
-    subject: string;
+    subject: string; // Mapped from title
     status: string;
     priority: string;
     customer_name: string;
@@ -30,26 +32,31 @@ export default function TicketsPage() {
     const [tickets, setTickets] = useState<Ticket[]>([]);
     const [loading, setLoading] = useState(true);
 
-    // Mock initial data if DB empty
-    const MOCK_TICKETS = [
-        { id: '1', subject: 'Login issue on student portal', status: 'open', priority: 'high', customer_name: 'Ahmed Ali', created_at: new Date().toISOString(), tags: ['bug', 'urgent'] },
-        { id: '2', subject: 'Refund request for Course A', status: 'pending', priority: 'medium', customer_name: 'Sarah Khan', created_at: new Date().toISOString(), tags: ['finance'] },
-        { id: '3', subject: 'Certificate not received', status: 'resolved', priority: 'low', customer_name: 'Mohamed E.', created_at: new Date().toISOString(), tags: ['admin'] },
-    ];
-
     useEffect(() => {
         fetchTickets();
     }, []);
 
     const fetchTickets = async () => {
-        const supabase = createClient();
-        const { data } = await supabase.from('support_tickets').select('*');
-        if (data && data.length > 0) {
-            setTickets(data as any);
-        } else {
-            setTickets(MOCK_TICKETS);
+        try {
+            const data = await getTickets();
+            
+            // Map DB fields to UI interface
+            const mappedTickets: Ticket[] = data.map((t: any) => ({
+                id: t.id,
+                subject: t.title, // 'title' in DB -> 'subject' in UI
+                status: t.status,
+                priority: t.priority,
+                customer_name: t.student_name || t.student_email || 'Unknown',
+                created_at: t.created_at,
+                tags: [] // Tags not yet in DB schema or action
+            }));
+
+            setTickets(mappedTickets);
+        } catch (error) {
+            console.error('Failed to fetch tickets', error);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     const getStatusColor = (status: string) => {
@@ -80,9 +87,7 @@ export default function TicketsPage() {
                         <button onClick={() => setViewMode('list')} className={`p-2 rounded ${viewMode === 'list' ? 'bg-white shadow text-primary' : 'text-gray-500'}`}><ListIcon className="w-4 h-4" /></button>
                         <button onClick={() => setViewMode('board')} className={`p-2 rounded ${viewMode === 'board' ? 'bg-white shadow text-primary' : 'text-gray-500'}`}><LayoutGrid className="w-4 h-4" /></button>
                     </div>
-                    <button className="bg-primary text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-primary/90">
-                        <Plus className="w-4 h-4" /> New Ticket
-                    </button>
+                    <NewTicketModal />
                 </div>
             </div>
 

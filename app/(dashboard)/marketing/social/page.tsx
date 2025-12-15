@@ -18,25 +18,10 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 
-interface SocialAccount {
-    id: string;
-    platform: 'facebook' | 'instagram' | 'twitter' | 'linkedin';
-    username: string;
-    page_name: string;
-    is_connected: boolean;
-    avatar_url?: string;
-}
+import { Database } from '@/lib/database.types';
 
-interface SocialPost {
-    id: string;
-    content: string;
-    platform: string;
-    likes: number;
-    comments: number;
-    shares: number;
-    created_at: string;
-    status: string;
-}
+type SocialAccount = Database['public']['Tables']['social_accounts']['Row'];
+type SocialPost = Database['public']['Tables']['social_posts']['Row'];
 
 const PLATFORM_ICONS = {
     facebook: Facebook,
@@ -52,9 +37,15 @@ const PLATFORM_COLORS = {
     twitter: 'bg-sky-500'
 };
 
+type SocialPostWithPlatform = SocialPost & {
+    social_accounts: {
+        platform: string;
+    } | null;
+};
+
 export default function SocialMediaPage() {
     const [accounts, setAccounts] = useState<SocialAccount[]>([]);
-    const [posts, setPosts] = useState<SocialPost[]>([]);
+    const [posts, setPosts] = useState<SocialPostWithPlatform[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -72,7 +63,7 @@ export default function SocialMediaPage() {
             // Fetch Recent Posts (Mock join for demo if needed, valid simplified)
             const { data: postData } = await supabase
                 .from('social_posts')
-                .select('*')
+                .select('*, social_accounts(platform)')
                 .order('created_at', { ascending: false })
                 .limit(10);
 
@@ -129,7 +120,7 @@ export default function SocialMediaPage() {
                             <p className="text-sm text-gray-500 mb-6">@{account.username}</p>
 
                             <button
-                                onClick={() => toggleConnection(account.id, account.is_connected)}
+                                onClick={() => toggleConnection(account.id, !!account.is_connected)}
                                 className={`w-full py-2 rounded-lg text-sm font-medium transition-colors border ${account.is_connected
                                         ? 'border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700'
                                         : 'bg-primary text-white hover:bg-primary/90'
@@ -159,7 +150,8 @@ export default function SocialMediaPage() {
                         </div>
                     ) : (
                         posts.map(post => {
-                            const Icon = PLATFORM_ICONS[post.platform as keyof typeof PLATFORM_ICONS] || Facebook;
+                            const platform = post.social_accounts?.platform || 'facebook';
+                            const Icon = PLATFORM_ICONS[platform as keyof typeof PLATFORM_ICONS] || Facebook;
 
                             return (
                                 <div key={post.id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors flex gap-4">
@@ -174,13 +166,13 @@ export default function SocialMediaPage() {
                                         </p>
                                         <div className="flex items-center gap-6 text-sm text-gray-500">
                                             <span className="flex items-center gap-1.5">
-                                                <ThumbsUp className="w-4 h-4" /> {post.likes}
+                                                <ThumbsUp className="w-4 h-4" /> {post.likes || 0}
                                             </span>
                                             <span className="flex items-center gap-1.5">
-                                                <MessageCircle className="w-4 h-4" /> {post.comments}
+                                                <MessageCircle className="w-4 h-4" /> {post.comments || 0}
                                             </span>
                                             <span className="flex items-center gap-1.5">
-                                                <Share2 className="w-4 h-4" /> {post.shares}
+                                                <Share2 className="w-4 h-4" /> {post.shares || 0}
                                             </span>
                                             <span className="ml-auto text-xs">
                                                 {new Date(post.created_at).toLocaleDateString('ar-EG')}

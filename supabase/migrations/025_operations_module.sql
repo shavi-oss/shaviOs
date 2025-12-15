@@ -69,12 +69,13 @@ CREATE POLICY "Enable all for authenticated" ON classes FOR ALL TO authenticated
 CREATE POLICY "Enable all for authenticated" ON class_feedback FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- SAMPLE DATA
-INSERT INTO rooms (name, capacity, resources) VALUES
-('Lab A (Mac)', 25, ARRAY['Mac M1', 'Projector', 'AC']),
-('Lab B (Windows)', 30, ARRAY['High-End PC', 'Smart Board']),
-('Meeting Room', 10, ARRAY['TV', 'Conference Phone']);
+-- COMMENTED OUT: Can conflict with existing table schemas
+-- INSERT INTO rooms (name, capacity, resources) VALUES
+-- ('Lab A (Mac)', 25, ARRAY['Mac M1', 'Projector', 'AC']),
+-- ('Lab B (Windows)', 30, ARRAY['High-End PC', 'Smart Board']),
+-- ('Meeting Room', 10, ARRAY['TV', 'Conference Phone']);
 
-INSERT INTO trainers (first_name, last_name, specialization, hourly_rate, bio) VALUES
-('Sarah', 'Ahmed', ARRAY['UI/UX', 'Figma'], 400, 'Senior Product Designer'),
-('Omar', 'Hassan', ARRAY['React', 'Next.js', 'Node.js'], 500, 'Full Stack Lead'),
-('Khaled', 'Ibrahim', ARRAY['Python', 'Data Science'], 450, 'AI Researcher');
+-- INSERT INTO trainers (first_name, last_name, specialization, hourly_rate, bio) VALUES
+-- ('Sarah', 'Ahmed', ARRAY['UI/UX', 'Figma'], 400, 'Senior Product Designer'),
+-- ('Omar', 'Hassan', ARRAY['React', 'Next.js', 'Node.js'], 500, 'Full Stack Lead'),
+-- ('Khaled', 'Ibrahim', ARRAY['Python', 'Data Science'], 450, 'AI Researcher');

@@ -1,197 +1,308 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import {
     Award,
     TrendingUp,
-    Target,
     Users,
-    DollarSign,
-    Trophy,
     Star,
-    ArrowUp,
-    ArrowDown
+    Calendar,
+    Eye,
+    Edit,
+    Download,
+    Filter
 } from 'lucide-react';
-import Link from 'next/link';
 
-export default function PerformanceDashboardPage() {
-    const [selectedDept, setSelectedDept] = useState('all');
+interface PerformanceReview {
+    id: string;
+    employee_id: string;
+    employee_name: string;
+    position: string;
+    reviewer_name: string;
+    period: string;
+    overall_rating: number;
+    technical_skills: number;
+    communication: number;
+    teamwork: number;
+    leadership: number;
+    status: 'pending' | 'completed' | 'scheduled';
+    review_date: string;
+    feedback?: string;
+}
 
-    const deptPerformance = [
-        { dept: 'Sales', avg_score: 92, employees: 15, top_performer: 'Ahmed Hassan', trend: 'up' },
-        { dept: 'Marketing', avg_score: 88, employees: 8, top_performer: 'Omar Khalid', trend: 'up' },
-        { dept: 'Finance', avg_score: 95, employees: 6, top_performer: 'Mohamed Saeed', trend: 'stable' },
-        { dept: 'HR', avg_score: 90, employees: 4, top_performer: 'Sarah Mohamed', trend: 'up' },
-        { dept: 'Operations', avg_score: 87, employees: 7, top_performer: 'Laila Ibrahim', trend: 'down' },
-        { dept: 'Customer Success', avg_score: 91, employees: 5, top_performer: 'Fatima Ali', trend: 'up' }
-    ];
+export default function PerformanceReviewsPage() {
+    const [reviews, setReviews] = useState<PerformanceReview[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [filterStatus, setFilterStatus] = useState<string>('all');
 
-    const topPerformers = [
-        { rank: 1, name: 'Mohamed Saeed', dept: 'Finance', score: 96, kpis_met: 5, commission: 0 },
-        { rank: 2, name: 'Fatima Ali', dept: 'Customer Success', score: 95, kpis_met: 5, commission: 8000 },
-        { rank: 3, name: 'Ahmed Hassan', dept: 'Sales', score: 94, kpis_met: 4, commission: 15000 },
-        { rank: 4, name: 'Sarah Mohamed', dept: 'HR', score: 93, kpis_met: 5, commission: 0 },
-        { rank: 5, name: 'Omar Khalid', dept: 'Marketing', score: 92, kpis_met: 4, commission: 12000 }
-    ];
+    useEffect(() => {
+        fetchReviews();
+    }, []);
 
-    const kpiAchievements = {
-        total_kpis: 150,
-        achieved: 128,
-        in_progress: 18,
-        not_met: 4,
-        achievement_rate: 85
+    const fetchReviews = async () => {
+        try {
+            setLoading(true);
+            const supabase = createClient();
+
+            const { data: employees } = await supabase
+                .from('employees')
+                .select('*')
+                .limit(20);
+
+            // Generate mock reviews
+            const mockReviews: PerformanceReview[] = (employees || []).map((emp, idx) => {
+                const overallRating = 3 + Math.random() * 2;
+                const statuses: Array<'pending' | 'completed' | 'scheduled'> = ['pending', 'completed', 'scheduled'];
+
+                return {
+                    id: `review-${idx + 1}`,
+                    employee_id: emp.id,
+                    employee_name: `${emp.first_name} ${emp.last_name}`,
+                    position: emp.position || 'موظف',
+                    reviewer_name: 'مدير القسم',
+                    period: 'Q4 2025',
+                    overall_rating: parseFloat(overallRating.toFixed(1)),
+                    technical_skills: 3 + Math.random() * 2,
+                    communication: 3 + Math.random() * 2,
+                    teamwork: 3 + Math.random() * 2,
+                    leadership: 3 + Math.random() * 2,
+                    status: statuses[idx % 3],
+                    review_date: new Date(2025, 11, 15 + idx).toISOString(),
+                    feedback: idx % 2 === 0 ? 'أداء ممتاز ومستمر في التحسن' : undefined
+                };
+            });
+
+            setReviews(mockReviews);
+        } catch (err) {
+            console.error('Failed to fetch reviews:', err);
+            setReviews([]);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const commissionEligible = [
-        { name: 'Ahmed Hassan', dept: 'Sales', kpis_met: 4, commission_amount: 15000, status: 'eligible' },
-        { name: 'Omar Khalid', dept: 'Marketing', kpis_met: 4, commission_amount: 12000, status: 'eligible' },
-        { name: 'Laila Ibrahim', dept: 'Operations', kpis_met: 3, commission_amount: 8000, status: 'pending' }
-    ];
+    const filteredReviews = reviews.filter(review => {
+        if (filterStatus === 'all') return true;
+        return review.status === filterStatus;
+    });
+
+    const stats = {
+        total: reviews.length,
+        completed: reviews.filter(r => r.status === 'completed').length,
+        pending: reviews.filter(r => r.status === 'pending').length,
+        avgRating: reviews.length > 0 ? reviews.reduce((sum, r) => sum + r.overall_rating, 0) / reviews.length : 0,
+        highPerformers: reviews.filter(r => r.overall_rating >= 4.5).length
+    };
+
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'completed': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300';
+            case 'scheduled': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300';
+            default: return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300';
+        }
+    };
+
+    const getStatusLabel = (status: string) => {
+        switch (status) {
+            case 'completed': return 'مكتمل';
+            case 'scheduled': return 'مجدول';
+            default: return 'قيد الانتظار';
+        }
+    };
+
+    const getRatingColor = (rating: number) => {
+        if (rating >= 4.5) return 'text-green-600 dark:text-green-400';
+        if (rating >= 3.5) return 'text-blue-600 dark:text-blue-400';
+        if (rating >= 2.5) return 'text-orange-600 dark:text-orange-400';
+        return 'text-red-600 dark:text-red-400';
+    };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                    <p className="mt-4 text-gray-600 dark:text-gray-400">جاري تحميل التقييمات...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="p-6 space-y-6">
             {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold flex items-center gap-2">
-                    <Award className="w-6 h-6 text-primary" />
-                    Performance Dashboard
-                </h1>
-                <p className="text-gray-500 text-sm mt-1">Employee and department performance overview</p>
+            <div className="flex justify-between items-center">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <Award className="w-8 h-8 text-primary" />
+                        تقييمات الأداء
+                    </h1>
+                    <p className="text-gray-500 dark:text-gray-400 mt-2">متابعة وإدارة تقييمات الموظفين</p>
+                </div>
+                <button className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2">
+                    <Download className="w-4 h-4" />
+                    تصدير التقرير
+                </button>
             </div>
 
-            {/* KPI Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
-                    <div className="text-2xl font-black text-gray-900 dark:text-white">{kpiAchievements.total_kpis}</div>
-                    <div className="text-xs text-gray-500 font-medium mt-1">Total KPIs</div>
+            {/* Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                        <Users className="w-8 h-8 text-blue-500" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">إجمالي التقييمات</div>
                 </div>
-                <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl border border-green-200 dark:border-green-800">
-                    <div className="text-2xl font-black text-green-600">{kpiAchievements.achieved}</div>
-                    <div className="text-xs text-green-700 dark:text-green-400 font-medium mt-1">Achieved</div>
-                </div>
-                <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl border border-orange-200 dark:border-orange-800">
-                    <div className="text-2xl font-black text-orange-600">{kpiAchievements.in_progress}</div>
-                    <div className="text-xs text-orange-700 dark:text-orange-400 font-medium mt-1">In Progress</div>
-                </div>
-                <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-200 dark:border-red-800">
-                    <div className="text-2xl font-black text-red-600">{kpiAchievements.not_met}</div>
-                    <div className="text-xs text-red-700 dark:text-red-400 font-medium mt-1">Not Met</div>
-                </div>
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-200 dark:border-blue-800">
-                    <div className="text-2xl font-black text-blue-600">{kpiAchievements.achievement_rate}%</div>
-                    <div className="text-xs text-blue-700 dark:text-blue-400 font-medium mt-1">Achievement Rate</div>
-                </div>
-            </div>
 
-            {/* Top Performers Leaderboard */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-                <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-                    <Trophy className="w-5 h-5 text-yellow-500" />
-                    🏆 Top Performers This Month
-                </h2>
-                <div className="space-y-3">
-                    {topPerformers.map((performer) => (
-                        <Link
-                            key={performer.rank}
-                            href={`/hr/employees/${performer.rank}`}
-                            className="flex items-center justify-between p-4 bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800 hover:shadow-md transition-all"
-                        >
-                            <div className="flex items-center gap-4">
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center font-black text-xl text-white ${performer.rank === 1 ? 'bg-gradient-to-br from-yellow-400 to-amber-500' :
-                                        performer.rank === 2 ? 'bg-gradient-to-br from-gray-400 to-gray-500' :
-                                            performer.rank === 3 ? 'bg-gradient-to-br from-orange-400 to-orange-500' :
-                                                'bg-gradient-to-br from-blue-400 to-blue-500'
-                                    }`}>
-                                    #{performer.rank}
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-gray-900 dark:text-white">{performer.name}</h3>
-                                    <p className="text-xs text-gray-500">{performer.dept} • {performer.kpis_met}/5 KPIs Met</p>
-                                </div>
-                            </div>
-                            <div className="text-right">
-                                <div className="text-2xl font-black text-green-600">{performer.score}</div>
-                                <div className="text-xs text-gray-500">Score</div>
-                                {performer.commission > 0 && (
-                                    <div className="text-xs text-blue-600 font-bold mt-1">${(performer.commission / 1000).toFixed(0)}K Commission</div>
-                                )}
-                            </div>
-                        </Link>
-                    ))}
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                        <Award className="w-8 h-8 text-green-500" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.completed}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">مكتملة</div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                        <Calendar className="w-8 h-8 text-orange-500" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.pending}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">قيد الانتظار</div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                        <Star className="w-8 h-8 text-yellow-500" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {stats.avgRating.toFixed(1)}
+                    </div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">متوسط التقييم</div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                        <TrendingUp className="w-8 h-8 text-green-500" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.highPerformers}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">أداء متميز</div>
                 </div>
             </div>
 
-            {/* Department Performance */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-                <h2 className="text-lg font-bold mb-4">Department Performance Overview</h2>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {deptPerformance.map((dept) => (
-                        <div key={dept.dept} className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-                            <div className="flex justify-between items-start mb-3">
-                                <div>
-                                    <h3 className="font-bold text-gray-900 dark:text-white">{dept.dept}</h3>
-                                    <p className="text-xs text-gray-500">{dept.employees} employees</p>
-                                </div>
-                                <div className={`px-2 py-1 rounded-full text-xs font-bold ${dept.trend === 'up' ? 'bg-green-100 text-green-700' :
-                                        dept.trend === 'down' ? 'bg-red-100 text-red-700' :
-                                            'bg-gray-100 text-gray-700'
-                                    }`}>
-                                    {dept.trend === 'up' && <ArrowUp className="w-3 h-3 inline" />}
-                                    {dept.trend === 'down' && <ArrowDown className="w-3 h-3 inline" />}
-                                    {dept.trend}
-                                </div>
-                            </div>
-                            <div className="mb-2">
-                                <div className="flex justify-between text-sm mb-1">
-                                    <span>Avg Score</span>
-                                    <span className="font-black">{dept.avg_score}%</span>
-                                </div>
-                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                                    <div
-                                        className={`h-full rounded-full ${dept.avg_score >= 90 ? 'bg-green-500' :
-                                                dept.avg_score >= 80 ? 'bg-blue-500' :
-                                                    'bg-orange-500'
-                                            }`}
-                                        style={{ width: `${dept.avg_score}%` }}
-                                    ></div>
-                                </div>
-                            </div>
-                            <div className="pt-2 border-t border-gray-200 dark:border-gray-800 text-xs text-gray-600 dark:text-gray-400">
-                                <Star className="w-3 h-3 inline text-yellow-500" /> Top: {dept.top_performer}
-                            </div>
-                        </div>
-                    ))}
-                </div>
+            {/* Filters */}
+            <div className="flex gap-3">
+                <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                >
+                    <option value="all">كل الحالات</option>
+                    <option value="completed">مكتملة</option>
+                    <option value="pending">قيد الانتظار</option>
+                    <option value="scheduled">مجدولة</option>
+                </select>
             </div>
 
-            {/* Commission Alerts */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-lg font-bold flex items-center gap-2">
-                        <DollarSign className="w-5 h-5 text-green-500" />
-                        Commission Eligible Employees
-                    </h2>
-                    <button className="px-3 py-1 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700">
-                        Notify HR
-                    </button>
-                </div>
-                <div className="space-y-3">
-                    {commissionEligible.map((emp, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+            {/* Reviews Grid */}
+            <div className="grid md:grid-cols-2 gap-4">
+                {filteredReviews.map((review) => (
+                    <div
+                        key={review.id}
+                        className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6"
+                    >
+                        {/* Header */}
+                        <div className="flex items-start justify-between mb-4">
                             <div>
-                                <h3 className="font-bold text-gray-900 dark:text-white">{emp.name}</h3>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">{emp.dept} • {emp.kpis_met}/5 KPIs Met</p>
+                                <h3 className="font-bold text-lg text-gray-900 dark:text-white">
+                                    {review.employee_name}
+                                </h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">{review.position}</p>
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                    المراجع: {review.reviewer_name}
+                                </p>
                             </div>
-                            <div className="text-right">
-                                <div className="text-xl font-black text-green-600">${(emp.commission_amount / 1000).toFixed(0)}K</div>
-                                <div className={`text-xs font-bold mt-1 ${emp.status === 'eligible' ? 'text-green-600' : 'text-orange-600'
-                                    }`}>
-                                    {emp.status === 'eligible' ? '✓ Eligible' : '⏳ Pending Approval'}
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(review.status)}`}>
+                                {getStatusLabel(review.status)}
+                            </span>
+                        </div>
+
+                        {/* Overall Rating */}
+                        <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-gray-600 dark:text-gray-400">التقييم الإجمالي</span>
+                                <div className="flex items-center gap-2">
+                                    <div className="flex items-center">
+                                        {Array.from({ length: 5 }).map((_, i) => (
+                                            <Star
+                                                key={i}
+                                                className={`w-4 h-4 ${i < Math.floor(review.overall_rating)
+                                                        ? 'text-yellow-400 fill-yellow-400'
+                                                        : 'text-gray-300 dark:text-gray-600'
+                                                    }`}
+                                            />
+                                        ))}
+                                    </div>
+                                    <span className={`text-lg font-bold ${getRatingColor(review.overall_rating)}`}>
+                                        {review.overall_rating.toFixed(1)}
+                                    </span>
                                 </div>
                             </div>
                         </div>
-                    ))}
-                </div>
+
+                        {/* Detailed Ratings */}
+                        <div className="space-y-2 mb-4">
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-gray-600 dark:text-gray-400">المهارات التقنية</span>
+                                <span className="font-bold text-gray-900 dark:text-white">
+                                    {review.technical_skills.toFixed(1)}/5
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-gray-600 dark:text-gray-400">التواصل</span>
+                                <span className="font-bold text-gray-900 dark:text-white">
+                                    {review.communication.toFixed(1)}/5
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-gray-600 dark:text-gray-400">العمل الجماعي</span>
+                                <span className="font-bold text-gray-900 dark:text-white">
+                                    {review.teamwork.toFixed(1)}/5
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-gray-600 dark:text-gray-400">القيادة</span>
+                                <span className="font-bold text-gray-900 dark:text-white">
+                                    {review.leadership.toFixed(1)}/5
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Feedback */}
+                        {review.feedback && (
+                            <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                                <p className="text-sm text-gray-700 dark:text-gray-300">{review.feedback}</p>
+                            </div>
+                        )}
+
+                        {/* Footer */}
+                        <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                                <Calendar className="w-3 h-3 inline mr-1" />
+                                {new Date(review.review_date).toLocaleDateString('ar-EG')}
+                            </div>
+                            <div className="flex gap-2">
+                                <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors">
+                                    <Eye className="w-4 h-4 text-gray-400" />
+                                </button>
+                                <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors">
+                                    <Edit className="w-4 h-4 text-gray-400" />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ))}
             </div>
         </div>
     );

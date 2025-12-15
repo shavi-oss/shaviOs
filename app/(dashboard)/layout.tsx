@@ -17,7 +17,7 @@ export default async function DashboardLayout({
     return (
         <div className="min-h-screen bg-gray-50">
             {/* Sidebar */}
-            <Sidebar userRole={session.user.role} />
+            <Sidebar />
 
             {/* Main Content */}
             <div className="lg:mr-64">

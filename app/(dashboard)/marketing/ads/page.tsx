@@ -23,12 +23,14 @@ interface AdCampaign {
     platform: string;
     name: string;
     status: string;
-    daily_budget: number;
-    total_spend: number;
-    impressions: number;
-    clicks: number;
-    roas: number;
-    ctr: number;
+    daily_budget: number | null;
+    total_spend: number | null;
+    impressions: number | null;
+    clicks: number | null;
+    roas: number | null;
+    ctr: number | null;
+    cpc: number | null;
+    cost_per_lead: number | null;
 }
 
 const PLATFORM_ICONS: Record<string, any> = {
@@ -163,21 +165,21 @@ export default function AdsManagerPage() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
-                                            {campaign.daily_budget} EGP
+                                            {campaign.daily_budget ? campaign.daily_budget.toLocaleString() : 0} EGP
                                         </td>
                                         <td className="px-6 py-4 font-medium text-gray-900 dark:text-gray-100">
-                                            {campaign.total_spend.toLocaleString()} EGP
+                                            {campaign.total_spend ? campaign.total_spend.toLocaleString() : 0} EGP
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-1 text-green-600">
                                                 <ArrowUpRight className="w-3 h-3" />
-                                                {campaign.roas}x
+                                                {campaign.roas ? campaign.roas.toFixed(2) : '0.00'}x
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="space-y-1 text-xs text-gray-500">
-                                                <div>{campaign.clicks.toLocaleString()} Click</div>
-                                                <div>{campaign.impressions.toLocaleString()} Imp</div>
+                                                <div>{(campaign.clicks?.toLocaleString() || 0)} Click</div>
+                                                <div>{(campaign.impressions?.toLocaleString() || 0)} Imp</div>
                                             </div>
                                         </td>
                                     </tr>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -8,8 +8,11 @@ import {
     Users,
     GraduationCap,
     DollarSign,
-    UserCircle,
-    Settings,
+    CheckSquare,
+    Upload,
+    Megaphone,
+    UserPlus,
+    Activity,
     BarChart3,
     Briefcase,
     HeartHandshake,
@@ -27,18 +30,27 @@ import {
     Calendar,
     Award,
     FileText,
-    CheckSquare,
-    Upload
+    Settings
 } from "lucide-react";
+import { usePermission } from "@/hooks/use-permission";
 
-interface SidebarProps {
-    userRole: string;
+interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
+    className?: string;
 }
 
 const navigationItems = [
     { name: "لوحة التحكم", href: "/", icon: LayoutDashboard },
     { name: "التسويق", href: "/marketing", icon: BarChart3 },
+    { name: "الحملات التسويقية", href: "/marketing/campaigns", icon: Megaphone },
+    { name: "العملاء المحتملين", href: "/marketing/leads", icon: Users },
     { name: "المبيعات", href: "/sales", icon: Briefcase },
+    { name: "الصفقات", href: "/sales/deals", icon: FileText },
+    { name: "تحليلات المبيعات", href: "/sales/analytics", icon: TrendingUp },
+    { name: "تقارير المبيعات", href: "/sales/reports", icon: BarChart3 },
+    { name: "عروض الأسعار", href: "/sales/quotes", icon: FileText },
+    { name: "العمولات", href: "/sales/commissions", icon: Award },
+    { name: "العملاء", href: "/sales/customers", icon: Users },
+    { name: "توقعات المبيعات", href: "/sales/forecasting", icon: TrendingUp },
     { name: "صفقاتي", href: "/sales/my-deals", icon: Target },
     { name: "خط الأنابيب", href: "/sales/pipeline", icon: TrendingUp },
     { name: "محرك SLA", href: "/sales/sla-engine", icon: Clock },
@@ -50,13 +62,17 @@ const navigationItems = [
     { name: "الطلاب", href: "/customer-success/students", icon: GraduationCap },
     { name: "الموارد البشرية", href: "/hr/employees", icon: Users },
     { name: "الإجازات", href: "/hr/leave", icon: Calendar },
-    { name: "الرواتب", href: "/hr/payroll", icon: DollarSign },
-    { name: "الأداء", href: "/hr/performance", icon: Award },
+    { name: "كشوف الرواتب", href: "/hr/payroll", icon: DollarSign },
+    { name: "تقييمات الأداء", href: "/hr/performance", icon: Award },
+    { name: "التوظيف", href: "/hr/recruitment", icon: UserPlus },
+    { name: "التدريب", href: "/hr/training", icon: GraduationCap },
     { name: "تحليلات HR", href: "/hr/analytics", icon: BarChart3 },
     { name: "التقارير", href: "/hr/reports", icon: FileText },
     { name: "المالية", href: "/finance", icon: DollarSign },
     { name: "الفواتير", href: "/finance/invoices", icon: FileText },
     { name: "المصروفات", href: "/finance/expenses", icon: TrendingDown },
+    { name: "الميزانية", href: "/finance/budget", icon: BarChart3 },
+    { name: "التقارير المالية", href: "/finance/reports", icon: FileText },
     { name: "المدربين", href: "/operations/trainers", icon: GraduationCap },
     { name: "الجلسات", href: "/operations/trainers/sessions", icon: Calendar },
     { name: "الواجبات", href: "/operations/trainers/assignments", icon: FileText },
@@ -65,21 +81,50 @@ const navigationItems = [
     { name: "الأرباح", href: "/operations/trainers/earnings", icon: DollarSign },
     { name: "العمليات", href: "/operations", icon: ClipboardList },
     { name: "لوحة التقنية", href: "/tech-panel", icon: Wrench },
+    { name: "التكاملات", href: "/tech-panel/integrations", icon: Layout },
+    { name: "سجلات الويب هوك", href: "/tech-panel/webhooks/logs", icon: Activity },
+    { name: "التصحيح (Debug)", href: "/tech-panel/debug", icon: Wrench },
 ];
 
-export function Sidebar({ userRole }: SidebarProps) {
+export function Sidebar({ className }: SidebarProps) {
     const pathname = usePathname();
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const { user, loading } = usePermission();
+
+    const filteredNavItems = useMemo(() => {
+        const userRole = user?.role || "";
+        return navigationItems.filter(item => {
+            if (loading) return false;
+
+            // Admin, Developer, and Manager see everything
+            if (['admin', 'developer'].includes(userRole)) return true;
+
+            // Managers see all except Tech Panel
+            if (userRole === 'manager' && item.href === '/tech-panel') return false;
+            if (userRole === 'manager') return true;
+
+            // Specific Role Access
+            if (userRole === 'sales' && ['/marketing', '/sales', '/customer-success', '/customers'].includes(item.href)) return true;
+            if (userRole === 'hr' && ['/hr', '/finance'].includes(item.href)) return true;
+            if (userRole === 'operations' && ['/operations', '/trainers', '/schedule'].includes(item.href)) return true;
+            if (userRole === 'trainer' && ['/operations'].includes(item.href)) return true;
+
+            // Dashboard is always visible
+            if (item.href === '/') return true;
+
+            return false;
+        });
+    }, [user, loading]);
 
     return (
         <>
             {/* Desktop Sidebar */}
             <aside
                 className={`fixed right-0 top-0 h-screen bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 transition-all duration-300 z-40 ${isCollapsed ? "w-20" : "w-64"
-                    } hidden lg:block`}
+                    } hidden lg:flex flex-col ${className || ""}`}
             >
                 {/* Logo Section */}
-                <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-800">
+                <div className="h-16 flex-none flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-800">
                     {!isCollapsed && (
                         <h1 className="text-xl font-bold text-primary">
                             Shavi Academy
@@ -100,25 +145,7 @@ export function Sidebar({ userRole }: SidebarProps) {
 
                 {/* Navigation */}
                 <nav className="flex-1 overflow-y-auto p-4 space-y-1 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
-                    {navigationItems.filter(item => {
-                        // Admin, Developer, and Manager see everything (except Tech Panel is restricted further)
-                        if (['admin', 'developer'].includes(userRole)) return true;
-
-                        // Managers see all except Tech Panel
-                        if (userRole === 'manager' && item.href === '/tech-panel') return false;
-                        if (userRole === 'manager') return true;
-
-                        // Specific Role Access
-                        if (userRole === 'sales' && ['/marketing', '/sales', '/customer-success', '/customers'].includes(item.href)) return true;
-                        if (userRole === 'hr' && ['/hr', '/finance'].includes(item.href)) return true; // HR usually manages payroll
-                        if (userRole === 'operations' && ['/operations', '/trainers', '/schedule'].includes(item.href)) return true;
-                        if (userRole === 'trainer' && ['/operations'].includes(item.href)) return true; // Trainers need Ops for schedule
-
-                        // Dashboard is always visible
-                        if (item.href === '/') return true;
-
-                        return false;
-                    }).map((item) => {
+                    {filteredNavItems.map((item) => {
                         const Icon = item.icon;
                         const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
 
@@ -132,7 +159,7 @@ export function Sidebar({ userRole }: SidebarProps) {
                                     }`}
                                 title={isCollapsed ? item.name : undefined}
                             >
-                                <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? "text-primary" : "text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300"
+                                <Icon className={`w-5 h-5 shrink-0 ${isActive ? "text-primary" : "text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300"
                                     }`} />
                                 {!isCollapsed && (
                                     <span className="text-sm">{item.name}</span>
@@ -161,7 +188,7 @@ export function Sidebar({ userRole }: SidebarProps) {
             {/* Mobile Bottom Nav */}
             <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 z-50">
                 <div className="flex justify-around items-center h-16 px-2">
-                    {navigationItems.slice(0, 5).map((item) => {
+                    {filteredNavItems.slice(0, 5).map((item) => {
                         const Icon = item.icon;
                         const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
 
@@ -175,7 +202,7 @@ export function Sidebar({ userRole }: SidebarProps) {
                                     }`}
                             >
                                 <Icon className="w-5 h-5 mb-1" />
-                                <span className="text-xs">{item.name}</span>
+                                <span className="text-[10px]">{item.name}</span>
                             </Link>
                         );
                     })}

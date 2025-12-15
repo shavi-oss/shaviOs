@@ -80,42 +80,42 @@ export default function TrainerDashboardPage() {
             {/* KPI Cards */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 {/* Total Students */}
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 rounded-xl border border-blue-200 dark:border-blue-800">
+                <div className="bg-linear-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 rounded-xl border border-blue-200 dark:border-blue-800">
                     <Users className="w-5 h-5 text-blue-600 mb-2" />
                     <div className="text-2xl font-black text-blue-600">{kpis.total_students}</div>
                     <div className="text-xs text-blue-700 dark:text-blue-400 font-medium mt-1">Students</div>
                 </div>
 
                 {/* Upcoming Sessions */}
-                <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-4 rounded-xl border border-purple-200 dark:border-purple-800">
+                <div className="bg-linear-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-4 rounded-xl border border-purple-200 dark:border-purple-800">
                     <Calendar className="w-5 h-5 text-purple-600 mb-2" />
                     <div className="text-2xl font-black text-purple-600">{kpis.upcoming_sessions}</div>
                     <div className="text-xs text-purple-700 dark:text-purple-400 font-medium mt-1">Upcoming Sessions</div>
                 </div>
 
                 {/* Pending Assignments */}
-                <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 p-4 rounded-xl border border-orange-200 dark:border-orange-800">
+                <div className="bg-linear-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 p-4 rounded-xl border border-orange-200 dark:border-orange-800">
                     <FileText className="w-5 h-5 text-orange-600 mb-2" />
                     <div className="text-2xl font-black text-orange-600">{kpis.pending_assignments}</div>
                     <div className="text-xs text-orange-700 dark:text-orange-400 font-medium mt-1">To Grade</div>
                 </div>
 
                 {/* Attendance Rate */}
-                <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-4 rounded-xl border border-green-200 dark:border-green-800">
+                <div className="bg-linear-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-4 rounded-xl border border-green-200 dark:border-green-800">
                     <CheckSquare className="w-5 h-5 text-green-600 mb-2" />
                     <div className="text-2xl font-black text-green-600">{kpis.attendance_rate}%</div>
                     <div className="text-xs text-green-700 dark:text-green-400 font-medium mt-1">Attendance Rate</div>
                 </div>
 
                 {/* Total Earnings */}
-                <div className="bg-gradient-to-br from-teal-50 to-cyan-50 dark:from-teal-900/20 dark:to-cyan-900/20 p-4 rounded-xl border border-teal-200 dark:border-teal-800">
+                <div className="bg-linear-to-br from-teal-50 to-cyan-50 dark:from-teal-900/20 dark:to-cyan-900/20 p-4 rounded-xl border border-teal-200 dark:border-teal-800">
                     <DollarSign className="w-5 h-5 text-teal-600 mb-2" />
                     <div className="text-2xl font-black text-teal-600">${(kpis.total_earnings / 1000).toFixed(0)}K</div>
                     <div className="text-xs text-teal-700 dark:text-teal-400 font-medium mt-1">This Month</div>
                 </div>
 
                 {/* Performance Score */}
-                <div className="bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 p-4 rounded-xl border border-yellow-200 dark:border-yellow-800">
+                <div className="bg-linear-to-br from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 p-4 rounded-xl border border-yellow-200 dark:border-yellow-800">
                     <Award className="w-5 h-5 text-yellow-600 mb-2" />
                     <div className="text-2xl font-black text-yellow-600">{kpis.performance_score}</div>
                     <div className="text-xs text-yellow-700 dark:text-yellow-400 font-medium mt-1">Performance</div>
@@ -190,7 +190,7 @@ export default function TrainerDashboardPage() {
                                 <div className="flex items-center gap-3 text-xs text-gray-600">
                                     <span className="flex items-center gap-1">
                                         <Calendar className="w-3 h-3" />
-                                        {new Date(session.date).toLocaleDateString()}
+                                        {new Date(session.date).toISOString().split('T')[0]}
                                     </span>
                                     <span className="flex items-center gap-1">
                                         <Clock className="w-3 h-3" />
@@ -243,7 +243,7 @@ export default function TrainerDashboardPage() {
                             <div key={idx} className="flex-1 flex flex-col items-center gap-2">
                                 <div className="text-sm font-bold text-gray-900 dark:text-white">{data.count}</div>
                                 <div
-                                    className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-lg transition-all hover:opacity-80"
+                                    className="w-full bg-linear-to-t from-blue-500 to-blue-400 rounded-t-lg transition-all hover:opacity-80"
                                     style={{ height: `${height}%` }}
                                 ></div>
                                 <div className="text-xs text-gray-500 font-medium">{data.week}</div>

@@ -26,23 +26,23 @@ interface Lead {
     first_name: string;
     last_name: string;
     email: string;
-    phone?: string;
-    company?: string;
-    status: 'new' | 'contacted' | 'qualified' | 'converted' | 'lost';
+    phone?: string | null;
+    company?: string | null;
+    status: 'new' | 'contacted' | 'qualified' | 'converted' | 'lost' | string;
     source: string;
     created_at: string;
-    total_score?: number;
-    temperature?: 'hot' | 'warm' | 'cold';
-    notes?: string;
-    last_contact?: string;
+    total_score?: number | null;
+    temperature?: 'hot' | 'warm' | 'cold' | null;
+    notes?: string | null;
+    last_contact?: string | null;
 }
 
 interface Activity {
     id: string;
-    type: 'call' | 'email' | 'meeting' | 'note';
+    type: 'call' | 'email' | 'meeting' | 'note' | string; // Allow flexible string for now as DB might have other values
     description: string;
     created_at: string;
-    created_by?: string;
+    created_by?: string | null;
 }
 
 export default function LeadDetailPage() {
@@ -73,8 +73,8 @@ export default function LeadDetailPage() {
                 .single();
 
             if (error) throw error;
-            setLead(data);
-            setEditedLead(data);
+            setLead(data as unknown as Lead);
+            setEditedLead(data as unknown as Lead);
         } catch (error) {
             console.error('Error fetching lead:', error);
         } finally {
@@ -228,7 +228,7 @@ export default function LeadDetailPage() {
         );
     }
 
-    const tempConfig = getTemperatureConfig(lead.temperature);
+    const tempConfig = getTemperatureConfig(lead.temperature || undefined);
     const TempIcon = tempConfig.icon;
 
     return (

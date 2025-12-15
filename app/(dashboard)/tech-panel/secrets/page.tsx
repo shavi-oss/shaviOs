@@ -16,8 +16,8 @@ import {
 interface Secret {
     id: string;
     key: string;
-    description: string;
-    category: string;
+    description: string | null;
+    category: string | null;
     created_at: string;
 }
 
