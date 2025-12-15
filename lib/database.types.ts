@@ -1428,6 +1428,36 @@ export type Database = {
         }
         Relationships: []
       }
+      budget_categories: {
+        Row: {
+          created_at: string
+          default_allocation: number
+          id: string
+          is_active: boolean
+          name: string
+          name_ar: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_allocation?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          name_ar?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_allocation?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          name_ar?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       knowledge_base: {
         Row: {
           author_id: string | null
