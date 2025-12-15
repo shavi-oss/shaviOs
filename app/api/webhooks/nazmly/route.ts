@@ -18,7 +18,7 @@ interface NazmlyPayload {
 export async function POST(request: NextRequest) {
     try {
         // 1. Get Secret
-        const secret = process.env.NAZMLY_WEBHOOK_SECRET;
+        const secret = (process.env.NAZMLY_WEBHOOK_SECRET || '').trim();
         if (!secret) {
             console.error('Configuration Error: NAZMLY_WEBHOOK_SECRET is missing');
             return NextResponse.json({ success: false, message: 'Server Configuration Error' }, { status: 500 });
@@ -28,6 +28,9 @@ export async function POST(request: NextRequest) {
         const signature = request.headers.get('x-nzmly-signature');
         const rawBody = await request.text(); // Read raw body for HMAC
 
+        // Debug Logging (Temporary: Remove in production once stable)
+        console.log(`Webhook Debug: Length=${rawBody.length}, SigHeader=${signature ? 'Present' : 'Missing'}`);
+
         if (!signature) {
              return NextResponse.json(
                 { success: false, message: 'Unauthorized: Missing Signature' },
@@ -36,25 +39,17 @@ export async function POST(request: NextRequest) {
         }
 
         // 3. Verify Signature
-        // The user documentation suggests hashing JSON.stringify(body), but hashing the raw body is safer against formatting differences.
-        // However, if the user explicitly provided code using JSON.stringify(req.body), we should be careful.
-        // Standard practice is Raw Body. Let's assume Raw Body first as it's the "True" payload.
-        // But to be safe and match the snippet exactly: The snippet did `JSON.stringify(req.body)`.
-        // In Next.js App Router, `request.json()` parses it.
-        // IMPORTANT: If Nazmly sends minified JSON and we verify against stringified parsed JSON, it works ONLY if formatting matches.
-        // Code snippet: .update(JSON.stringify(req.body))
-        // Let's implement robustly: Hash the received raw text. This is always correct if the sender hashes their output.
-        
         const computedSignature = crypto
             .createHmac('sha256', secret)
             .update(rawBody) 
             .digest('hex');
 
-        // Check compatibility: If raw body check fails, maybe try the "stringify" method if the sender implementation is quirky (Unlikely for a standard webhook).
-        // For now, strict RAW body check is the security standard.
-        
         if (signature !== computedSignature) {
-             console.warn('Invalid Signature:', { received: signature, computed: computedSignature });
+             console.warn('Signature Mismatch:', { 
+                received: signature, 
+                computed: computedSignature,
+                bodySnippet: rawBody.substring(0, 50) 
+             });
              return NextResponse.json(
                 { success: false, message: 'Unauthorized: Invalid Signature' },
                 { status: 401 }
@@ -63,16 +58,10 @@ export async function POST(request: NextRequest) {
 
         // 4. Parse Body
         const body: NazmlyPayload = JSON.parse(rawBody);
-
-        // Basic Validation
-        if (!body.email) {
-             // Some events might not have email at top level if structure is { type: ..., data: { email: ... } }
-             // User example: event.data contains the info.
-             // Let's adapt to handle both flat and nested structures based on user snippet
-             // Snippet: event.type, event.data
-        }
         
-        // Adapt extraction logic
+        // Adapt extraction logic for various event types
+        // Case 1: store.customer.created -> data.email
+        // Case 2: store.order.created -> data.customer.email
         let targetEmail = body.email;
         let firstName = body.first_name || '';
         let lastName = body.last_name || '';
@@ -80,17 +69,29 @@ export async function POST(request: NextRequest) {
         let company = body.company || '';
         let notes = body.notes || 'Imported via Nazmly Webhook';
 
-        // Helper to check nested data if top level is missing
-        if (!targetEmail && body.data && body.data.email) {
-            targetEmail = body.data.email;
-            firstName = body.data.first_name || '';
-            lastName = body.data.last_name || '';
-            phone = body.data.phone || '';
-            company = body.data.company || '';
-            notes = body.data.notes || notes;
+        // Helper to check nested data
+        if (body.data) {
+            // Direct data (Customer Created)
+            if (body.data.email) {
+                targetEmail = body.data.email;
+                firstName = body.data.first_name || firstName;
+                lastName = body.data.last_name || lastName;
+                phone = body.data.phone || phone;
+                company = body.data.company || company;
+            }
+            // Nested Customer (Order Created)
+            else if (body.data.customer && body.data.customer.email) {
+                targetEmail = body.data.customer.email;
+                firstName = body.data.customer.first_name || firstName;
+                lastName = body.data.customer.last_name || lastName;
+                phone = body.data.customer.phone || phone;
+            }
+            // Fallback for ID only
+            if (body.data.id) notes = `Ref ID: ${body.data.id} - ${notes}`;
         }
 
         if (!targetEmail) {
+            console.warn('Skipping Webhook: No email found in payload', body);
             return NextResponse.json(
                 { success: false, message: 'Missing required field: email' },
                 { status: 400 }
