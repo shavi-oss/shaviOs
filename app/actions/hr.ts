@@ -277,7 +277,7 @@ export async function createEmployee(formData: FormData) {
     }
 
     // 3. Workflow: Auto-Enroll in Payroll for Current Month
-    if (emp && emp.salary > 0) {
+    if (emp && emp.salary !== null && emp.salary > 0) {
         const today = new Date();
         const month = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 
