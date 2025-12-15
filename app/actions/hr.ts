@@ -283,7 +283,7 @@ export async function createEmployee(formData: FormData) {
 
         // Calculate Net (Basic logic, can import full calculator if needed, but keeping simple here to avoid circular dep risks if not carefully managed)
         // Accessing payroll logic via import
-        const { calculateNetSalary } = await import('./payroll');
+        const { calculateNetSalary } = await import('@/lib/payroll-utils');
         const net = calculateNetSalary(emp.salary);
 
         const { error: payError } = await supabase

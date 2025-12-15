@@ -127,9 +127,9 @@ export async function getTrainerPayments(
 }
 
 // Helper to calculate Net Salary
-export const calculateNetSalary = (base: number, bonuses: number = 0, deductions: number = 0) => {
-    return Math.max(0, base + bonuses - deductions);
-};
+// Helper to calculate Net Salary
+// Moved to lib/payroll-utils.ts to avoid 'use server' conflict
+import { calculateNetSalary } from '@/lib/payroll-utils';
 
 export async function generatePayrollForMonth(month: string) {
     const supabase = await createClient();
