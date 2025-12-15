@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
                 table_name: 'leads',
                 record_id: data.id,
                 user_email: 'system@nazmly.webhook',
-                new_data: body,
+                new_data: body as any,
                 reason: `Event: ${body.type || 'Generic Import'}`
             });
         } catch (logError) {
