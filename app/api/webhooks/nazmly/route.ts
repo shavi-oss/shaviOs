@@ -51,35 +51,42 @@ export async function POST(request: NextRequest) {
         }
 
         // 2. Extract Data (Robust Handling)
-        let targetEmail = body.email;
-        let firstName = body.first_name || '';
-        let lastName = body.last_name || '';
-        let phone = body.phone || '';
-        let company = body.company || '';
-        let notes = body.notes || `Imported via Nazmly Webhook`;
+        
+        // Extract email robustly
+        let targetEmail = 
+            body.email || 
+            (body.data && body.data.email) || 
+            (body.data && body.data.customer && body.data.customer.email);
 
-        // Check for nested 'data' object (Common in Nazmly v2025+)
-        if (body.data) {
-            // Case A: Event "store.customer.created" (Data is the customer)
-            if (body.data.email) {
-                targetEmail = body.data.email;
-                firstName = body.data.first_name || firstName;
-                lastName = body.data.last_name || lastName;
-                phone = body.data.phone || phone;
-                company = body.data.company || company;
-            }
-            // Case B: Event "store.order.created" (Data contains customer object)
-            else if (body.data.customer && body.data.customer.email) {
-                targetEmail = body.data.customer.email;
-                firstName = body.data.customer.first_name || firstName;
-                lastName = body.data.customer.last_name || lastName;
-                phone = body.data.customer.phone || phone;
-            }
-            
-            // Append Reference ID to notes for tracking
-            if (body.data.id) {
-                notes = `Ref: ${body.data.id}. ${notes}`; 
-            }
+        let firstName = 
+            body.first_name || 
+            (body.data && body.data.first_name) || 
+            (body.data && body.data.customer && body.data.customer.first_name) || 
+            'Unknown';
+
+        let lastName = 
+            body.last_name || 
+            (body.data && body.data.last_name) || 
+            (body.data && body.data.customer && body.data.customer.last_name) || 
+            'Unknown';
+
+        let phone = 
+            body.phone || 
+            (body.data && body.data.phone) || 
+            (body.data && body.data.customer && body.data.customer.phone) || 
+            null;
+
+        let company = 
+            body.company || 
+            (body.data && body.data.company) || 
+            (body.data && body.data.customer && body.data.customer.company) || 
+            null;
+
+        let notes = body.notes || (body.data && body.data.notes) || (body.data && body.data.customer && body.data.customer.notes) || 'Imported via Nazmly Webhook';
+
+        // Helper to append Reference ID to notes for tracking if available
+        if (body.data && body.data.id) {
+            notes = `Ref: ${body.data.id}. ${notes}`; 
         }
 
         // 3. Validation
@@ -91,21 +98,14 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // 4. Name Fallback Logic
-        if (!firstName && !lastName) {
-            // If we have a 'name' field somewhere
-            const rawName = body.name || (body.data && body.data.name) || (body.data && body.data.customer && body.data.customer.name);
-            if (rawName) {
+        // 4. Name Fallback Logic (Unified with extraction above, ensuring fallback to Name string if present)
+        if (firstName === 'Unknown' && lastName === 'Unknown') {
+             const rawName = body.name || (body.data && body.data.name) || (body.data && body.data.customer && body.data.customer.name);
+             if (rawName) {
                 const parts = rawName.trim().split(' ');
                 firstName = parts[0];
                 lastName = parts.slice(1).join(' ') || 'Unknown';
-            } else {
-                firstName = 'Unknown';
-                lastName = 'Unknown';
-            }
-        } else {
-            if (!firstName) firstName = 'Unknown';
-            if (!lastName) lastName = 'Unknown';
+             }
         }
 
         const supabase = await createClient();
