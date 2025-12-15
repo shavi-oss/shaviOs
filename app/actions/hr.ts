@@ -1,4 +1,5 @@
 'use server';
+// Force rebuild deployment trigger
 
 import { createClient } from '@/lib/supabase/server';
 import { leaveRequestSchema } from '@/lib/validations';
@@ -279,7 +280,13 @@ export async function createEmployee(formData: FormData) {
     // 3. Workflow: Auto-Enroll in Payroll for Current Month
     if (emp && emp.salary !== null && emp.salary > 0) {
         const today = new Date();
-        const month = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+        const year = today.getFullYear();
+        const monthNum = today.getMonth() + 1;
+        const period = `${year}-${String(monthNum).padStart(2, '0')}`;
+        
+        // Calculate period start/end (Required by DB)
+        const startDate = new Date(Date.UTC(year, monthNum - 1, 1)).toISOString().split('T')[0];
+        const endDate = new Date(Date.UTC(year, monthNum, 0)).toISOString().split('T')[0];
 
         // Calculate Net (Basic logic, can import full calculator if needed, but keeping simple here to avoid circular dep risks if not carefully managed)
         // Accessing payroll logic via import
@@ -290,12 +297,14 @@ export async function createEmployee(formData: FormData) {
             .from('payroll_records')
             .insert({
                 employee_id: emp.id,
-                month: month,
-                basic_salary: emp.salary,
+                period: period,
+                period_start: startDate,
+                period_end: endDate,
+                base_salary: emp.salary,
                 net_salary: net,
                 status: 'pending',
-                additions: 0,
-                deductions: 0
+                bonuses: 0,
+                total_deductions: 0
             });
             
         if (payError) logger.warn('Failed to auto-create payroll', payError);
