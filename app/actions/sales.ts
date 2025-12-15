@@ -8,6 +8,43 @@ import { Database } from '@/lib/database.types';
 type Deal = Database['public']['Tables']['deals']['Row'];
 
 /**
+ * Create a New Deal
+ */
+export async function createDeal(data: Partial<Deal>) {
+    const supabase = await createClient();
+    
+    try {
+        const { data: newDeal, error } = await supabase
+            .from('deals')
+            .insert({
+                title: data.title,
+                value: data.value || 0,
+                currency: data.currency || 'EGP',
+                stage: data.stage || 'lead',
+                customer_id: data.customer_id, // ensure this is passed if selected
+                // If customer_name is not in schema but derived, we might need to handle it. 
+                // Assuming schema has customer_id. 
+                // If the user enters a raw name for a new customer not in DB, that's complex. 
+                // For now, let's assume we pick a customer or just insert minimal data.
+                expected_close_date: data.expected_close_date,
+                notes: data.notes
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        revalidatePath('/sales');
+        revalidatePath('/sales/deals');
+        return { success: true, deal: newDeal };
+
+    } catch (error: any) {
+        logger.error('createDeal error', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
  * Update Deal Stage and Trigger Automated Workflows
  */
 export async function updateDealStage(dealId: string, newStage: string) {

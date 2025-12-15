@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { getWebhookLogs } from '@/app/actions/audit';
 import {
     Table,
     TableBody,
@@ -32,18 +32,15 @@ export default function WebhookLogsPage() {
 
     const fetchLogs = async () => {
         setLoading(true);
-        const supabase = createClient();
-        
-        const { data, error } = await supabase
-            .from('audit_logs')
-            .select('*')
-            .eq('action', 'WEBHOOK_NAZMLY_RECEIVED')
-            .order('created_at', { ascending: false });
-
-        if (error) {
-            console.error('Error fetching logs', error);
-        } else {
-            setLogs(data as any || []);
+        try {
+            const result = await getWebhookLogs();
+            if (result.success) {
+                setLogs(result.data as any || []);
+            } else {
+                console.error('Failed to fetch logs:', result.error);
+            }
+        } catch (error) {
+            console.error('Error calling fetchLogs:', error);
         }
         setLoading(false);
     };
