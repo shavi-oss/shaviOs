@@ -14,7 +14,7 @@ interface NazmlyPayload {
     notes?: string;
     data?: {
         id?: string;
-        name?: string; // Added to fix build error
+        name?: string;
         email?: string;
         first_name?: string;
         last_name?: string;
@@ -23,7 +23,7 @@ interface NazmlyPayload {
         notes?: string;
         customer?: {
             id?: string;
-            name?: string; // Added to fix build error
+            name?: string;
             email?: string;
             first_name?: string;
             last_name?: string;
@@ -38,19 +38,35 @@ interface NazmlyPayload {
 
 export async function POST(request: NextRequest) {
     try {
-        // 1. Parse Payload
-        // We removed HMAC check as per request, so we can parse JSON directly.
+        // 1. Read Raw Body
+        const rawBody = await request.text();
+        console.log('Incoming Webhook Body:', rawBody); // Critical for debugging
+
+        // 2. Parse JSON
         let body: NazmlyPayload;
         try {
-            body = await request.json();
+            if (!rawBody) {
+                return NextResponse.json({ success: false, message: 'Empty body' }, { status: 400 });
+            }
+            body = JSON.parse(rawBody);
         } catch (e) {
+            console.error('JSON Parse Error:', e);
             return NextResponse.json(
                 { success: false, message: 'Invalid JSON', error: 'Failed to parse request body' },
                 { status: 400 }
             );
         }
 
-        // 2. Extract Data (Robust Handling)
+        // 3. Handle Test Events (Immediate Success)
+        if (body.id === 'swe_testid') {
+            console.log('Test Webhook Received (swe_testid). Returning 200 OK.');
+            return NextResponse.json(
+                { success: true, message: 'Test event received successfully' },
+                { status: 200 }
+            );
+        }
+
+        // 4. Extract Data (Robust Handling)
         
         // Extract email robustly
         let targetEmail = 
@@ -85,20 +101,21 @@ export async function POST(request: NextRequest) {
         let notes = body.notes || (body.data && body.data.notes) || (body.data && body.data.customer && body.data.customer.notes) || 'Imported via Nazmly Webhook';
 
         // Helper to append Reference ID to notes for tracking if available
-        if (body.data && body.data.id) {
+        if (body.data && body.data.id && body.id !== 'swe_testid') {
             notes = `Ref: ${body.data.id}. ${notes}`; 
         }
 
-        // 3. Validation
+        // 5. Validation (Relaxed: Return 200 even if ignored)
         if (!targetEmail) {
-            console.warn('Webhook Ignored: No email found', body);
+            console.warn('Webhook Ignored (Skipped): No email found in payload', body);
+            // Return 200 to acknowledge receipt and prevent retries for unsupported events
             return NextResponse.json(
-                { success: false, message: 'Missing required field: email' },
-                { status: 400 }
+                { success: true, message: 'Event skipped: No email found' },
+                { status: 200 }
             );
         }
 
-        // 4. Name Fallback Logic (Unified with extraction above, ensuring fallback to Name string if present)
+        // 6. Name Fallback Logic
         if (firstName === 'Unknown' && lastName === 'Unknown') {
              const rawName = body.name || (body.data && body.data.name) || (body.data && body.data.customer && body.data.customer.name);
              if (rawName) {
@@ -110,7 +127,7 @@ export async function POST(request: NextRequest) {
 
         const supabase = await createClient();
 
-        // 5. Check Duplicates
+        // 7. Check Duplicates
         const { data: existing } = await supabase
             .from('leads')
             .select('id')
@@ -118,8 +135,9 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (existing) {
-             // Log the duplicate event attempt anyway
-             await logWebhookEvent(supabase, existing.id, body, 'Duplicate Lead skipped');
+             console.log(`Duplicate Lead: ${targetEmail} (ID: ${existing.id})`);
+             // Log the duplicate event attempt
+             await logWebhookEvent(supabase, existing.id, body, `Duplicate Lead skipped (${body.type})`);
 
              return NextResponse.json(
                 { success: true, message: 'Lead already exists', id: existing.id },
@@ -127,15 +145,15 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // 6. Insert New Lead
+        // 8. Insert New Lead
         const { data, error } = await supabase
             .from('leads')
             .insert({
                 first_name: firstName,
                 last_name: lastName,
                 email: targetEmail,
-                phone: phone || null,
-                company: company || null,
+                phone: phone,
+                company: company,
                 source: 'nazmly',
                 status: 'new',
                 notes: notes,
@@ -145,13 +163,15 @@ export async function POST(request: NextRequest) {
 
         if (error) {
             console.error('Webhook Insert Error:', error);
+            // Return 500 only for actual DB errors we want to retry (or 200 if we want to suppress)
+            // Usually 500 is correct for DB failure so they retry
             return NextResponse.json(
                 { success: false, message: 'Database error', error: error.message },
                 { status: 500 }
             );
         }
 
-        // 7. Audit Log
+        // 9. Audit Log
         await logWebhookEvent(supabase, data.id, body, `Success: ${body.type || 'Generic Event'}`);
 
         return NextResponse.json(
