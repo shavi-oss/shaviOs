@@ -57,7 +57,14 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // 3. Handle Test Events (Immediate Success)
+        // 3. Unwrap Nested Payload (Detected in Logs)
+        // Logs show structure: { body: { ... }, headers: { ... } }
+        if (body.body && (body.headers || body.body.type)) {
+            console.log('Detected Wrapped Payload (Nazmly Wrapper). Unwrapping...');
+            body = body.body as any; // Cast to bypass type check temporarily for unwrapping
+        }
+
+        // 4. Handle Test Events (Immediate Success)
         if (body.id === 'swe_testid') {
             console.log('Test Webhook Received (swe_testid). Returning 200 OK.');
             return NextResponse.json(
