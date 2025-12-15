@@ -127,7 +127,7 @@ export async function getTrainerPayments(
 }
 
 // Helper to calculate Net Salary
-const calculateNetSalary = (base: number, bonuses: number = 0, deductions: number = 0) => {
+export const calculateNetSalary = (base: number, bonuses: number = 0, deductions: number = 0) => {
     return Math.max(0, base + bonuses - deductions);
 };
 
