@@ -16,32 +16,15 @@ export default function NewDealForm() {
         value: '',
         currency: 'EGP',
         stage: 'lead',
-        customer_id: '',
+        customer_name: '',
+        customer_company: '',
         expected_close_date: '',
         notes: ''
     });
 
-    // In a real app, we would fetch customers here. 
-    // For now, we'll try to fetch or leave it as a required ID or maybe a text input if schema doesn't enforce FK (unlikely).
-    // Let's assume we need to fetch customers. 
-    // Since I don't have a guaranteed 'getCustomers' action handy and want to be fast/stable:
-    // I will try to fetch them client side or just show a "Customer ID" input if I can't find them?
-    // No, better to try getting them. 
-    // Actually, let's use a simple client fetch for customers if possible, or just mock it/ ask user to enter ID if we can't.
-    // Wait, the user wants "Final System". A dropdown is best.
-    // I'll assume 'customers' table exists and is public readable or I can use a simple Select.
-    // I'll stick to a basic fetch in useEffect.
-
     useEffect(() => {
-        // Fetch customers for dropdown
-        // This assumes a client-side supabase client is available or we use a server action. 
-        // Let's try to fetch from a presumptive 'getCustomers' if it existed, otherwise I'll just use a direct query via client if allowed.
-        // Or cleaner: just text input for now to avoid breaking if customers table is complex?
-        // Let's try to fetch strictly 'id, first_name, last_name' from 'customers' via an API route or action if available.
-        // Safest MVP: Input field "Related Customer" (Search/Select would be v2). 
-        // I will add a text input that says "Customer ID (Optional)" just in case.
-        // Actually, looking at Deal Logic, there is `customer_name`? No, schema likely has customer_id.
-        // I will provide a simple input for now.
+        // No fetch needed for now as we are using text input for customer name/company
+        // per schema (denormalized or simple CRM).
     }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -53,7 +36,8 @@ export default function NewDealForm() {
             value: parseFloat(formData.value) || 0,
             currency: formData.currency,
             stage: formData.stage,
-            customer_id: formData.customer_id || null, // Allow null if optional
+            customer_name: formData.customer_name,
+            customer_company: formData.customer_company,
             expected_close_date: formData.expected_close_date || null,
             notes: formData.notes
         });
@@ -97,6 +81,30 @@ export default function NewDealForm() {
                         className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none"
                         placeholder="مثال: صفقة توريد أجهزة - شركة الأمل"
                     />
+                </div>
+                
+                 {/* Customer Info */}
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label className="block text-sm font-medium mb-2">اسم العميل</label>
+                        <input 
+                            type="text" 
+                            value={formData.customer_name}
+                            onChange={(e) => setFormData({...formData, customer_name: e.target.value})}
+                            className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none"
+                            placeholder="اسم الشخص المسؤول"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-2">اسم الشركة</label>
+                        <input 
+                            type="text" 
+                            value={formData.customer_company}
+                            onChange={(e) => setFormData({...formData, customer_company: e.target.value})}
+                            className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none"
+                            placeholder="الشركة (اختياري)"
+                        />
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
