@@ -10,29 +10,38 @@ type Deal = Database['public']['Tables']['deals']['Row'];
 /**
  * Create a New Deal
  */
-export async function createDeal(data: Partial<Deal>) {
+export async function createDeal(data: Partial<Deal> & { notes?: string }) {
     const supabase = await createClient();
     
     try {
+        // 1. Create Deal (Exclude notes from direct insert as column doesn't exist)
         const { data: newDeal, error } = await supabase
             .from('deals')
             .insert({
-                title: data.title,
+                title: data.title || 'New Deal', // Fix: Ensure title is string
                 value: data.value || 0,
                 currency: data.currency || 'EGP',
                 stage: data.stage || 'lead',
-                customer_id: data.customer_id, // ensure this is passed if selected
-                // If customer_name is not in schema but derived, we might need to handle it. 
-                // Assuming schema has customer_id. 
-                // If the user enters a raw name for a new customer not in DB, that's complex. 
-                // For now, let's assume we pick a customer or just insert minimal data.
-                expected_close_date: data.expected_close_date,
-                notes: data.notes
+                customer_name: data.customer_name || null,
+                customer_company: data.customer_company || null,
+                expected_close_date: data.expected_close_date || null
             })
             .select()
             .single();
 
         if (error) throw error;
+
+        // 2. Add Initial Note if provided (store in deal_activities)
+        if (data.notes && newDeal) {
+            await supabase.from('deal_activities').insert({
+                deal_id: newDeal.id,
+                type: 'note',
+                content: data.notes,
+                occurred_at: new Date().toISOString()
+                // performed_by will be handled by RLS/Trigger usually, or we can try adding it if we have user context.
+                // For now, let's rely on default or just insert content/type.
+            });
+        }
 
         revalidatePath('/sales');
         revalidatePath('/sales/deals');
