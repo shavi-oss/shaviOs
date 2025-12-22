@@ -60,7 +60,10 @@ export async function getPayrollRecords(
     }
 
     // Transform
-    const records = (data as any[]).map(record => ({
+    type PayrollQueryRow = Database['public']['Tables']['payroll_records']['Row'] & {
+        employee: { first_name: string; last_name: string; position: string; department: string }
+    };
+    const records = (data as PayrollQueryRow[]).map(record => ({
         ...record,
         employee_name: `${record.employee.first_name} ${record.employee.last_name}`,
         month: record.period
@@ -113,7 +116,10 @@ export async function getTrainerPayments(
         throw new Error('Failed to fetch trainer payments');
     }
 
-    const records = (data as any[]).map(record => ({
+    type TrainerQueryRow = Database['public']['Tables']['trainer_payments']['Row'] & {
+        trainer: { full_name: string } | null
+    };
+    const records = (data as TrainerQueryRow[]).map(record => ({
         ...record,
         trainer_name: record.trainer ? record.trainer.full_name : 'Unknown Trainer'
     }));
@@ -127,9 +133,9 @@ export async function getTrainerPayments(
 }
 
 // Helper to calculate Net Salary
-// Helper to calculate Net Salary
 // Moved to lib/payroll-utils.ts to avoid 'use server' conflict
 import { calculateNetSalary } from '@/lib/payroll-utils';
+import { generateEmployeePayrollHelper, generateTrainerPayrollHelper } from '@/lib/payroll/generators';
 
 export async function generatePayrollForMonth(month: string) {
     const supabase = await createClient();
@@ -146,119 +152,22 @@ export async function generatePayrollForMonth(month: string) {
     const endDateStr = endDate.toISOString().split('T')[0];
 
     // --- 1. GENERATE EMPLOYEE PAYROLL ---
-    
-    // Check existing
-    const { count: existingEmpPayroll } = await supabase
-        .from('payroll_records')
-        .select('id', { count: 'exact', head: true })
-        .eq('period', month);
-
-    let empCount = 0;
-
-    if (!existingEmpPayroll || existingEmpPayroll === 0) {
-        const { data: employees } = await supabase
-            .from('employees')
-            .select('*')
-            .eq('status', 'active');
-
-        if (employees && employees.length > 0) {
-            const records: Database['public']['Tables']['payroll_records']['Insert'][] = employees.map(emp => {
-                const base = emp.salary || 0;
-                // Initialize bonuses/deductions to 0. 
-                // Future: Pull from a deductions table if one exists.
-                const bonuses = 0; 
-                const deductions = 0;
-                
-                return {
-                    employee_id: emp.id,
-                    period: month,
-                    period_start: startDateStr,
-                    period_end: endDateStr,
-                    base_salary: base,
-                    bonuses: bonuses,
-                    total_deductions: deductions,
-                    net_salary: calculateNetSalary(base, bonuses, deductions),
-                    status: 'pending'
-                };
-            });
-
-            const { error: empError } = await supabase.from('payroll_records').insert(records);
-            if (empError) console.error('Error generating employee payroll:', empError);
-            else empCount = records.length;
-        }
-    }
+    const empCount = await generateEmployeePayrollHelper(month, startDateStr, endDateStr, supabase);
 
     // --- 2. GENERATE TRAINER PAYROLL ---
-
-    // Check existing
-    const { count: existingTrainerPayroll } = await supabase
-        .from('trainer_payments')
-        .select('id', { count: 'exact', head: true })
-        .gte('period_start', startDateStr)
-        .lte('period_end', endDateStr);
-
-    let trainerCount = 0;
-
-    if (!existingTrainerPayroll || existingTrainerPayroll === 0) {
-        // Fetch ALL sessions for this month first (more efficient than looping queries)
-        // Optimized: Only fetch necessary columns
-        const { data: sessions, error: sessionsError } = await supabase
-            .from('course_sessions')
-            .select('trainer_id')
-            .gte('start_date', startDateStr)
-            .lte('start_date', endDateStr)
-            .neq('status', 'cancelled');
-
-        if (!sessionsError && sessions && sessions.length > 0) {
-            // Aggregate in memory (O(N) pass)
-            const sessionsByTrainer: Record<string, number> = {};
-            sessions.forEach(s => {
-                if (s.trainer_id) {
-                    sessionsByTrainer[s.trainer_id] = (sessionsByTrainer[s.trainer_id] || 0) + 1;
-                }
-            });
-
-            // Get rates for relevant trainers only
-            const trainerIds = Object.keys(sessionsByTrainer);
-            if (trainerIds.length > 0) {
-                const { data: trainers } = await supabase
-                    .from('trainers')
-                    .select('id, hourly_rate')
-                    .in('id', trainerIds);
-
-                if (trainers) {
-                    const trainerRecords: Database['public']['Tables']['trainer_payments']['Insert'][] = [];
-                    
-                    for (const trainer of trainers) {
-                        const count = sessionsByTrainer[trainer.id] || 0;
-                        const rate = trainer.hourly_rate || 0;
-                        const amount = count * rate;
-
-                        trainerRecords.push({
-                            trainer_id: trainer.id,
-                            amount: amount,
-                            sessions_count: count,
-                            period_start: startDateStr,
-                            period_end: endDateStr,
-                            status: 'pending',
-                            notes: `Auto-generated: ${count} sessions @ ${rate}/hr`
-                        });
-                    }
-
-                    if (trainerRecords.length > 0) {
-                        const { error: trError } = await supabase.from('trainer_payments').insert(trainerRecords);
-                        if (trError) console.error('Error generating trainer payroll:', trError);
-                        else trainerCount = trainerRecords.length;
-                    }
-                }
-            }
-        }
-    }
+    const trainerCount = await generateTrainerPayrollHelper(startDateStr, endDateStr, supabase);
 
     revalidatePath('/hr/payroll');
     
-    if (existingEmpPayroll && existingTrainerPayroll) {
-        return { message: 'Payroll already generated for this month', success: false };
+    // If both counts are 0, it might mean they already existed or just no data
+    if (empCount === 0 && trainerCount === 0) {
+        // Double check if it's because they already exist
+        const { count: existingEmp } = await supabase.from('payroll_records').select('id', { count: 'exact', head: true }).eq('period', month);
+        const { count: existingTrainer } = await supabase.from('trainer_payments').select('id', { count: 'exact', head: true }).gte('period_start', startDateStr).lte('period_end', endDateStr);
+        
+        if ((existingEmp || 0) > 0 && (existingTrainer || 0) > 0) {
+            return { message: 'Payroll already generated for this month', success: false };
+        }
     }
 
     return { 

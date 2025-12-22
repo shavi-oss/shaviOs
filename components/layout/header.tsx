@@ -8,12 +8,10 @@ import Link from "next/link";
 import { NotificationDropdown } from "./notification-dropdown";
 import { useNotifications } from "@/contexts/notification-context";
 
+import { User as UserType } from "@/lib/user.types";
+
 interface HeaderProps {
-    user: {
-        full_name?: string;
-        email: string;
-        role?: string;
-    };
+    user: UserType;
 }
 
 interface SearchResult {

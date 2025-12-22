@@ -5,9 +5,6 @@ import { useRouter } from 'next/navigation';
 import {
     MessageSquare,
     CheckCircle,
-    Clock,
-    Users,
-    Search,
     AlertCircle,
     BookOpen,
     Zap,
@@ -24,30 +21,53 @@ import {
     CartesianGrid,
     Tooltip,
     ResponsiveContainer,
-    LineChart,
-    Line
 } from 'recharts';
 
-// Mock Data
-const TICKET_STATS = [
-    { title: "Open Tickets", value: "24", icon: MessageSquare, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-900/20" },
-    { title: "Avg Resolution", value: "2.4h", icon: Clock, color: "text-orange-600", bg: "bg-orange-50 dark:bg-orange-900/20" },
-    { title: "CSAT Score", value: "4.8/5", icon: Smile, color: "text-green-600", bg: "bg-green-50 dark:bg-green-900/20" },
-    { title: "SLA Breaches", value: "1", icon: AlertCircle, color: "text-red-600", bg: "bg-red-50 dark:bg-red-900/20" },
-];
+import { getTicketStats, getWeeklyVolume } from '@/app/actions/analytics';
 
-const WEEKLY_VOLUME = [
-    { day: 'Mon', tickets: 12, resolved: 10 },
-    { day: 'Tue', tickets: 19, resolved: 15 },
-    { day: 'Wed', tickets: 15, resolved: 14 },
-    { day: 'Thu', tickets: 22, resolved: 18 },
-    { day: 'Fri', tickets: 18, resolved: 16 },
-    { day: 'Sat', tickets: 8, resolved: 8 },
-    { day: 'Sun', tickets: 5, resolved: 4 },
-];
+// ... imports remain the same
+
+interface VolumeData {
+    day: string;
+    tickets: number;
+    resolved: number;
+}
 
 export default function SupportDashboard() {
     const router = useRouter();
+    const [stats, setStats] = useState({ openTickets: 0, resolvedThisWeek: 0, slaBreaches: 0, csatScore: 'N/A' });
+    const [volume, setVolume] = useState<VolumeData[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        async function loadData() {
+            try {
+                const [statsData, volumeData] = await Promise.all([
+                    getTicketStats(),
+                    getWeeklyVolume()
+                ]);
+                
+                if (statsData) setStats(statsData);
+                if (volumeData) setVolume(volumeData);
+            } catch (error) {
+                console.error('Failed to load analytics', error);
+            } finally {
+                setLoading(false);
+            }
+        }
+        loadData();
+    }, []);
+
+    const ticketStatsConfig = [
+        { title: "Open Tickets", value: stats.openTickets.toString(), icon: MessageSquare, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-900/20" },
+        { title: "Resolved (Week)", value: stats.resolvedThisWeek.toString(), icon: CheckCircle, color: "text-orange-600", bg: "bg-orange-50 dark:bg-orange-900/20" },
+        { title: "CSAT Score", value: stats.csatScore, icon: Smile, color: "text-green-600", bg: "bg-green-50 dark:bg-green-900/20" },
+        { title: "SLA Breaches", value: stats.slaBreaches.toString(), icon: AlertCircle, color: "text-red-600", bg: "bg-red-50 dark:bg-red-900/20" },
+    ];
+
+    if (loading) {
+        return <div className="p-6 text-center text-gray-500">Loading dashboard data...</div>;
+    }
 
     return (
         <div className="p-6 space-y-6">
@@ -71,13 +91,13 @@ export default function SupportDashboard() {
 
             {/* KPI Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {TICKET_STATS.map((stat, i) => (
+                {ticketStatsConfig.map((stat, i) => (
                     <div key={i} className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all">
                         <div className="flex justify-between items-start mb-4">
                             <div className={`p-3 rounded-lg ${stat.bg} ${stat.color}`}>
                                 <stat.icon className="w-6 h-6" />
                             </div>
-                            <span className="text-xs font-bold text-green-500 bg-green-50 px-2 py-1 rounded-full">+12%</span>
+                            {/* <span className="text-xs font-bold text-green-500 bg-green-50 px-2 py-1 rounded-full">+12%</span> */}
                         </div>
                         <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-1">{stat.value}</h3>
                         <p className="text-sm text-gray-500 font-medium">{stat.title}</p>
@@ -94,14 +114,14 @@ export default function SupportDashboard() {
                             <BarChart2 className="w-5 h-5 text-gray-500" />
                             Ticket Volume & Resolution
                         </h3>
-                        <select className="text-sm border-gray-200 rounded-lg p-1 bg-gray-50">
+                        {/* <select className="text-sm border-gray-200 rounded-lg p-1 bg-gray-50">
                             <option>This Week</option>
                             <option>Last Week</option>
-                        </select>
+                        </select> */}
                     </div>
                     <div className="h-72">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={WEEKLY_VOLUME}>
+                            <BarChart data={volume}>
                                 <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
                                 <XAxis dataKey="day" axisLine={false} tickLine={false} />
                                 <YAxis axisLine={false} tickLine={false} />

@@ -11,7 +11,6 @@ import {
     Send,
     Plus,
     Search,
-    Star,
     Edit,
     Trash2
 } from 'lucide-react';

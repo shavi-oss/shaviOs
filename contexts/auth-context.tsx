@@ -1,8 +1,8 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { User } from '@/lib/types';
+import { User } from '@/lib/user.types';
 import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
@@ -23,7 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const supabase = createClient();
 
-    const fetchUser = async () => {
+    const fetchUser = useCallback(async () => {
         try {
             const { data: { user: authUser } } = await supabase.auth.getUser();
             
@@ -55,12 +55,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } finally {
             setLoading(false);
         }
-    };
+    }, [supabase]);
 
     useEffect(() => {
         fetchUser();
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, _session) => {
             if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
                 await fetchUser();
             } else if (event === 'SIGNED_OUT') {
@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return () => {
             subscription.unsubscribe();
         };
-    }, []);
+    }, [fetchUser, router, supabase.auth]);
 
     return (
         <AuthContext.Provider value={{ user, loading, refreshUser: fetchUser }}>

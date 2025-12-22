@@ -1,114 +1,19 @@
-"use client";
-
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { getSalesStats } from '@/app/actions/sales';
 import {
     DollarSign,
     Briefcase,
     TrendingUp,
     Target,
     FileText,
-    PieChart,
     Plus,
-    Users,
     ArrowUpRight
 } from 'lucide-react';
 import { StatCard } from '@/components/dashboard/stat-card';
+import Link from 'next/link';
 
-interface SalesStats {
-    totalRevenue: number;
-    activeDeals: number;
-    winRate: number;
-    pipelineValue: number;
-}
-
-export default function SalesDashboard() {
-    const router = useRouter();
-    const [stats, setStats] = useState<SalesStats | null>(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        async function fetchSalesStats() {
-            try {
-                const { createClient } = await import('@/lib/supabase/client');
-                const supabase = createClient();
-
-                // Fetch all deals
-                const { data: deals, error } = await supabase
-                    .from('deals')
-                    .select('id, value, stage, currency');
-
-                if (error) {
-                    console.warn('Unable to fetch deals (table may be empty or inaccessible):', error.message || 'No details');
-                    setStats({
-                        totalRevenue: 0,
-                        activeDeals: 0,
-                        winRate: 0,
-                        pipelineValue: 0
-                    });
-                    setLoading(false);
-                    return;
-                }
-
-                // If no deals, show zeros
-                if (!deals || deals.length === 0) {
-                    setStats({
-                        totalRevenue: 0,
-                        activeDeals: 0,
-                        winRate: 0,
-                        pipelineValue: 0
-                    });
-                    setLoading(false);
-                    return;
-                }
-
-                // Calculate stats from real data
-                const closedWonDeals = deals.filter(d => d.stage === 'closed_won');
-                const closedLostDeals = deals.filter(d => d.stage === 'closed_lost');
-                const activeDeals = deals.filter(d => d.stage !== 'closed_won' && d.stage !== 'closed_lost');
-
-                const totalRevenue = closedWonDeals.reduce((sum, deal) => sum + (deal.value || 0), 0);
-                const pipelineValue = activeDeals.reduce((sum, deal) => sum + (deal.value || 0), 0);
-
-                // Calculate win rate: (closed won / (closed won + closed lost)) * 100
-                const totalClosed = closedWonDeals.length + closedLostDeals.length;
-                const winRate = totalClosed > 0
-                    ? (closedWonDeals.length / totalClosed) * 100
-                    : 0;
-
-                setStats({
-                    totalRevenue,
-                    activeDeals: activeDeals.length,
-                    winRate,
-                    pipelineValue
-                });
-                setLoading(false);
-            } catch (err) {
-                console.error('Failed to fetch sales stats:', err);
-                // Fallback to zeros on error
-                setStats({
-                    totalRevenue: 0,
-                    activeDeals: 0,
-                    winRate: 0,
-                    pipelineValue: 0
-                });
-                setLoading(false);
-            }
-        }
-
-        fetchSalesStats();
-    }, []);
-
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-                    <p className="mt-4 text-gray-600 dark:text-gray-400">جاري تحميل لوحة المبيعات...</p>
-                </div>
-            </div>
-        );
-    }
+export default async function SalesDashboard() {
+    // Server-side data fetching (replaces useEffect)
+    const stats = await getSalesStats();
 
     const TOOLS = [
         { label: 'إدارة الصفقات', icon: Briefcase, path: '/sales/deals', color: 'bg-blue-50 text-blue-600' },
@@ -128,40 +33,40 @@ export default function SalesDashboard() {
                         لوحة التحكم المركزية لفريق المبيعات
                     </p>
                 </div>
-                <button
-                    onClick={() => router.push('/sales/deals/new')}
+                <Link
+                    href="/sales/deals/new"
                     className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
                 >
                     <Plus className="w-5 h-5" />
                     صفقة جديدة
-                </button>
+                </Link>
             </div>
 
             {/* Stats Grid */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <StatCard
                     title="الإيرادات (Revenue)"
-                    value={`${(stats?.totalRevenue || 0) / 1000}K EGP`}
+                    value={`${(stats.totalRevenue / 1000).toFixed(1)}K EGP`}
                     icon={DollarSign}
                     description="هذا الربع السنوي"
                     trend={{ value: 15.3, isPositive: true }}
                 />
                 <StatCard
                     title="الصفقات النشطة"
-                    value={stats?.activeDeals || 0}
+                    value={stats.activeDeals}
                     icon={Briefcase}
                     description="في جميع المراحل"
                 />
                 <StatCard
                     title="معدل الإغلاق (Win Rate)"
-                    value={`${stats?.winRate || 0}%`}
+                    value={`${stats.winRate.toFixed(0)}%`}
                     icon={Target}
                     description="نسبة النجاح"
                     trend={{ value: 3.5, isPositive: true }}
                 />
                 <StatCard
                     title="قيمة Pipeline"
-                    value={`${(stats?.pipelineValue || 0) / 1000}K EGP`}
+                    value={`${(stats.pipelineValue / 1000).toFixed(1)}K EGP`}
                     icon={TrendingUp}
                     description="متوقع إغلاقها"
                 />
@@ -174,16 +79,16 @@ export default function SalesDashboard() {
                     {TOOLS.map((tool, idx) => {
                         const Icon = tool.icon;
                         return (
-                            <button
+                            <Link
                                 key={idx}
-                                onClick={() => router.push(tool.path)}
+                                href={tool.path}
                                 className="group p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-primary/50 hover:shadow-lg transition-all text-center flex flex-col items-center gap-3"
                             >
                                 <div className={`p-3 rounded-full ${tool.color} group-hover:scale-110 transition-transform`}>
                                     <Icon className="w-6 h-6" />
                                 </div>
                                 <span className="font-semibold text-sm">{tool.label}</span>
-                            </button>
+                            </Link>
                         );
                     })}
                 </div>

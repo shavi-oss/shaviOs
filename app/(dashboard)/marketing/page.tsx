@@ -31,7 +31,7 @@ interface ActivityLog {
     action: string;
     details: string;
     time: string;
-    icon: any;
+    icon: React.ElementType;
     color: string;
 }
 

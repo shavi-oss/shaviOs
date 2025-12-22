@@ -31,9 +31,9 @@ export async function fixAdminProfile() {
 
     revalidatePath('/tech-panel/debug');
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Fix admin profile error:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
 
@@ -75,8 +75,8 @@ export async function seedSampleData() {
         
         revalidatePath('/tech-panel/debug');
         return { success: true };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error: unknown) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
 }
 
@@ -116,7 +116,7 @@ export async function verifyBudgetSystem() {
         results.message = `Success: Found ${results.categoryCount} categories. Logic test passed.`;
         return { success: true, data: results };
 
-    } catch (e: any) {
-        return { success: false, error: e.message };
+    } catch (error: unknown) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
 }

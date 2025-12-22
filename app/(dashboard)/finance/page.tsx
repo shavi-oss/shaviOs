@@ -1,53 +1,50 @@
-"use client";
-
-import { useState } from 'react';
+import { getFinancialMetrics } from '@/app/actions/finance';
 import {
     DollarSign,
     TrendingUp,
     TrendingDown,
-    Users,
     FileText,
     AlertCircle,
     BarChart3,
-    PieChart,
     ArrowUp,
     ArrowDown
 } from 'lucide-react';
 
-export default function FinancialDashboardPage() {
-    const [selectedPeriod, setSelectedPeriod] = useState('month');
-
-    // KPI Data
+export default async function FinancialDashboardPage() {
+    // Fetch real financial metrics from database
+    const metrics = await getFinancialMetrics();
+    
+    // Get the most recent month's data
+    const lastMonth = metrics.trend.length > 0 
+        ? metrics.trend[metrics.trend.length - 1] 
+        : { revenue: 0, expenses: 0, profit: 0 };
+    
+    // Calculate KPIs from real data
     const kpis = {
-        monthly_revenue: 2500000,
-        total_expenses: 1800000,
-        net_profit: 700000,
-        accounts_receivable: 450000,
-        overdue_payments: 120000,
-        cashflow: 550000,
-        profit_margin: 28,
-        ytd_revenue: 28000000
+        monthly_revenue: lastMonth.revenue,
+        total_expenses: lastMonth.expenses,
+        net_profit: lastMonth.profit,
+        accounts_receivable: 450000, // TODO: Add real API
+        overdue_payments: 120000,    // TODO: Add real API
+        cashflow: lastMonth.revenue - lastMonth.expenses,
+        profit_margin: lastMonth.revenue > 0 
+            ? ((lastMonth.profit / lastMonth.revenue) * 100).toFixed(0)
+            : 0,
+        ytd_revenue: metrics.summary.revenue
     };
 
-    // Revenue vs Expenses Data (Last 12 months)
-    const revenueExpensesData = [
-        { month: 'Jan', revenue: 2200, expenses: 1650 },
-        { month: 'Feb', revenue: 2350, expenses: 1700 },
-        { month: 'Mar', revenue: 2450, expenses: 1750 },
-        { month: 'Apr', revenue: 2300, expenses: 1680 },
-        { month: 'May', revenue: 2600, expenses: 1820 },
-        { month: 'Jun', revenue: 2550, expenses: 1800 },
-        { month: 'Jul', revenue: 2400, expenses: 1750 },
-        { month: 'Aug', revenue: 2650, expenses: 1850 },
-        { month: 'Sep', revenue: 2500, expenses: 1800 },
-        { month: 'Oct', revenue: 2700, expenses: 1900 },
-        { month: 'Nov', revenue: 2550, expenses: 1780 },
-        { month: 'Dec', revenue: 2500, expenses: 1800 }
-    ];
+    // Convert trend data for chart (last 12 months or available)
+    const revenueExpensesData = metrics.trend.map(item => ({
+        month: item.month.substring(5), // Get "MM" from "YYYY-MM"
+        revenue: item.revenue / 1000, // Convert to K
+        expenses: item.expenses / 1000
+    }));
 
-    const maxRevenue = Math.max(...revenueExpensesData.map(d => d.revenue));
+    const maxRevenue = revenueExpensesData.length > 0 
+        ? Math.max(...revenueExpensesData.map(d => d.revenue))
+        : 1;
 
-    // Department Revenue
+    // Department Revenue (TODO: Add real API)
     const deptRevenue = [
         { dept: 'Sales', revenue: 1200000, percentage: 48 },
         { dept: 'Marketing', revenue: 600000, percentage: 24 },
@@ -55,7 +52,7 @@ export default function FinancialDashboardPage() {
         { dept: 'Customer Success', revenue: 250000, percentage: 10 }
     ];
 
-    // Top Customers
+    // Top Customers (TODO: Add real API)
     const topCustomers = [
         { name: 'TechCorp Ltd', revenue: 450000, invoices: 12 },
         { name: 'Digital Solutions', revenue: 380000, invoices: 8 },
@@ -64,7 +61,7 @@ export default function FinancialDashboardPage() {
         { name: 'Cloud Ventures', revenue: 250000, invoices: 9 }
     ];
 
-    // Top Suppliers
+    // Top Suppliers (TODO: Add real API)
     const topSuppliers = [
         { name: 'AWS Cloud Services', expenses: 180000 },
         { name: 'Office Lease Co.', expenses: 150000 },
@@ -82,19 +79,11 @@ export default function FinancialDashboardPage() {
                         <DollarSign className="w-6 h-6 text-primary" />
                         Financial Dashboard
                     </h1>
-                    <p className="text-gray-500 text-sm mt-1">Real-time financial metrics and analytics</p>
+                    <p className="text-gray-500 text-sm mt-1">Real-time financial metrics from database</p>
                 </div>
-                <select
-                    value={selectedPeriod}
-                    onChange={(e) => setSelectedPeriod(e.target.value)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-bold"
-                >
-                    <option value="today">Today</option>
-                    <option value="week">This Week</option>
-                    <option value="month">This Month</option>
-                    <option value="quarter">This Quarter</option>
-                    <option value="year">This Year</option>
-                </select>
+                <div className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-bold bg-gray-50">
+                    Last {metrics.trend.length} Months
+                </div>
             </div>
 
             {/* KPI Cards (8 Metrics) */}
@@ -185,6 +174,75 @@ export default function FinancialDashboardPage() {
                     </div>
                     <div className="text-2xl font-black text-yellow-600">${(kpis.ytd_revenue / 1000000).toFixed(1)}M</div>
                     <div className="text-xs text-yellow-600 mt-1">Target: $30M</div>
+                </div>
+            </div>
+
+            {/* PHASE 3.3: Revenue Attribution & Forecast Section */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Revenue Attribution */}
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <h3 className="text-base font-bold mb-4 flex items-center gap-2">
+                        <BarChart3 className="w-5 h-5 text-indigo-500" />
+                        Revenue by Source
+                    </h3>
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                                <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">Deals</span>
+                            </div>
+                            <span className="font-bold text-lg">
+                                ${((metrics.attribution?.deal || 0) / 1000).toFixed(0)}K
+                            </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                                <span className="px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700">Manual</span>
+                            </div>
+                            <span className="font-bold text-lg">
+                                ${((metrics.attribution?.manual || 0) / 1000).toFixed(0)}K
+                            </span>
+                        </div>
+                        <div className="pt-3 border-t border-gray-200 dark:border-gray-700 flex justify-between">
+                            <span className="text-sm font-bold text-gray-500">Total</span>
+                            <span className="text-sm font-bold">
+                                ${((metrics.realized?.total || 0) / 1000).toFixed(0)}K
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Forecast Revenue Card */}
+                <div className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 p-6 rounded-xl border border-purple-200 dark:border-purple-800">
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-bold text-purple-700 dark:text-purple-400">Forecast Revenue</span>
+                        <TrendingUp className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div className="text-3xl font-black text-purple-600 mb-2">
+                        ${((metrics.forecast?.weightedRevenue || 0) / 1000).toFixed(0)}K
+                    </div>
+                    <div className="text-xs text-purple-600 mb-1">
+                        Weighted by stage probability
+                    </div>
+                    <div className="text-xs text-purple-500">
+                        {metrics.forecast?.dealCount || 0} deals • ${((metrics.forecast?.totalValue || 0) / 1000).toFixed(0)}K total value
+                    </div>
+                </div>
+
+                {/* Total Expected Revenue Card */}
+                <div className="bg-gradient-to-br from-cyan-50 to-sky-50 dark:from-cyan-900/20 dark:to-sky-900/20 p-6 rounded-xl border border-cyan-200 dark:border-cyan-800">
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-bold text-cyan-700 dark:text-cyan-400">Total Expected</span>
+                        <BarChart3 className="w-5 h-5 text-cyan-600" />
+                    </div>
+                    <div className="text-3xl font-black text-cyan-600 mb-2">
+                        ${((metrics.totalExpected || 0) / 1000).toFixed(0)}K
+                    </div>
+                    <div className="text-xs text-cyan-600 mb-1">
+                        Realized + Forecast
+                    </div>
+                    <div className="text-xs text-cyan-500">
+                        ${((metrics.realized?.fromDeals || 0) / 1000).toFixed(0)}K realized + ${((metrics.forecast?.weightedRevenue || 0) / 1000).toFixed(0)}K forecast
+                    </div>
                 </div>
             </div>
 

@@ -67,9 +67,9 @@ export function NotificationDropdown({ isOpen, onClose }: { isOpen: boolean; onC
                                     className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors relative group ${!notif.read ? getPriorityColor(notif.priority) : 'border-l-4 border-transparent'
                                         }`}
                                 >
-                                    {notif.actionUrl ? (
+                                    {notif.action_url ? (
                                         <Link
-                                            href={notif.actionUrl}
+                                            href={notif.action_url}
                                             onClick={() => {
                                                 markAsRead(notif.id);
                                                 onClose();
@@ -148,7 +148,7 @@ function NotificationContent({ notification }: { notification: any }) {
                 </p>
                 <div className="flex items-center gap-1 mt-1 text-[10px] text-gray-400">
                     <Clock className="w-3 h-3" />
-                    {formatDistanceToNow(new Date(notification.timestamp), { addSuffix: true })}
+                    {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
                 </div>
             </div>
         </div>

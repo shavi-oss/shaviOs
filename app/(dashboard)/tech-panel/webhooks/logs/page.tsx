@@ -13,29 +13,20 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { RefreshCcw, Activity } from 'lucide-react';
 
-interface AuditLog {
-    id: string;
-    action: string;
-    recrod_id: string;
-    created_at: string;
-    new_data: any;
-    reason: string;
-}
+import { Database } from '@/lib/database.types';
+
+type AuditLog = Database['public']['Tables']['audit_logs']['Row'];
 
 export default function WebhookLogsPage() {
     const [logs, setLogs] = useState<AuditLog[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        fetchLogs();
-    }, []);
-
     const fetchLogs = async () => {
         setLoading(true);
         try {
             const result = await getWebhookLogs();
-            if (result.success) {
-                setLogs(result.data as any || []);
+            if (result.success && result.data) {
+                setLogs(result.data);
             } else {
                 console.error('Failed to fetch logs:', result.error);
             }
@@ -44,6 +35,10 @@ export default function WebhookLogsPage() {
         }
         setLoading(false);
     };
+
+    useEffect(() => {
+        fetchLogs();
+    }, []);
 
     return (
         <div className="p-6 space-y-6">

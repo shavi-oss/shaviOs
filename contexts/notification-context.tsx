@@ -1,107 +1,126 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { useRouter } from 'next/navigation';
 
 export interface Notification {
     id: string;
-    type: 'sla_breach' | 'assignment' | 'message' | 'escalation' | 'system';
+    type: 'sla_breach' | 'assignment' | 'message' | 'escalation' | 'system' | 'ticket_assigned' | 'ticket_escalated';
     title: string;
     message: string;
-    timestamp: Date;
+    created_at: string;
     read: boolean;
-    actionUrl?: string;
+    action_url?: string;
     priority: 'low' | 'medium' | 'high' | 'urgent';
+    user_id: string;
 }
 
 interface NotificationContextType {
     notifications: Notification[];
     unreadCount: number;
-    addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void;
-    markAsRead: (id: string) => void;
-    markAllAsRead: () => void;
-    clearNotification: (id: string) => void;
+    markAsRead: (id: string) => Promise<void>;
+    markAllAsRead: () => Promise<void>;
+    clearNotification: (id: string) => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
     const [notifications, setNotifications] = useState<Notification[]>([]);
+    const router = useRouter();
+    const supabase = createClient();
 
-    // Simulate initial notifications
+    const [userId, setUserId] = useState<string | null>(null);
+
+    // Initial Fetch & Auth Check
     useEffect(() => {
-        const mockNotifications: Notification[] = [
-            {
-                id: '1',
-                type: 'sla_breach',
-                title: 'SLA Breach Warning',
-                message: 'Ticket #1025 will breach SLA in 15 minutes',
-                timestamp: new Date(Date.now() - 5 * 60 * 1000), // 5 min ago
-                read: false,
-                actionUrl: '/customer-success/tickets/1025',
-                priority: 'urgent'
-            },
-            {
-                id: '2',
-                type: 'assignment',
-                title: 'New Ticket Assigned',
-                message: 'Ticket #1026 has been assigned to you',
-                timestamp: new Date(Date.now() - 15 * 60 * 1000), // 15 min ago
-                read: false,
-                actionUrl: '/customer-success/tickets/1026',
-                priority: 'high'
-            },
-            {
-                id: '3',
-                type: 'message',
-                title: 'New Customer Reply',
-                message: 'Ahmed Ali replied to Ticket #1025',
-                timestamp: new Date(Date.now() - 30 * 60 * 1000), // 30 min ago
-                read: true,
-                actionUrl: '/customer-success/tickets/1025',
-                priority: 'medium'
+        const fetchNotifications = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            setUserId(user.id);
+
+            const { data, error } = await supabase
+                .from('notifications')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false })
+                .limit(50);
+
+            if (!error && data) {
+                setNotifications(data as Notification[]);
             }
-        ];
-        setNotifications(mockNotifications);
-
-        // Simulate new notifications every 30 seconds
-        const interval = setInterval(() => {
-            const newNotif: Notification = {
-                id: Date.now().toString(),
-                type: ['message', 'assignment', 'escalation'][Math.floor(Math.random() * 3)] as any,
-                title: 'New Activity',
-                message: 'A new event occurred in the system',
-                timestamp: new Date(),
-                read: false,
-                priority: 'medium'
-            };
-            setNotifications(prev => [newNotif, ...prev].slice(0, 20)); // Keep last 20
-        }, 30000);
-
-        return () => clearInterval(interval);
-    }, []);
-
-    const addNotification = (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
-        const newNotification: Notification = {
-            ...notification,
-            id: Date.now().toString(),
-            timestamp: new Date(),
-            read: false
         };
-        setNotifications(prev => [newNotification, ...prev]);
-    };
 
-    const markAsRead = (id: string) => {
+        fetchNotifications();
+    }, [supabase]);
+
+    // Real-time Subscription
+    useEffect(() => {
+        if (!userId) return;
+
+        const channel = supabase
+            .channel('notifications-changes')
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'notifications',
+                    filter: `user_id=eq.${userId}`
+                },
+                (payload) => {
+                    const newNotif = payload.new as Notification;
+                    setNotifications(prev => [newNotif, ...prev]);
+                    
+                    // Optional: Play sound or show browser notification here
+                    console.log('New Notification:', newNotif);
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [userId, supabase]);
+
+    const markAsRead = async (id: string) => {
+        // Optimistic update
         setNotifications(prev =>
             prev.map(notif => notif.id === id ? { ...notif, read: true } : notif)
         );
+
+        await supabase
+            .from('notifications')
+            .update({ read: true })
+            .eq('id', id);
+            
+        router.refresh();
     };
 
-    const markAllAsRead = () => {
+    const markAllAsRead = async () => {
+        // Optimistic update
         setNotifications(prev => prev.map(notif => ({ ...notif, read: true })));
+
+        if (userId) {
+            await supabase
+                .from('notifications')
+                .update({ read: true })
+                .eq('user_id', userId)
+                .eq('read', false); // Only update unread ones
+        }
     };
 
-    const clearNotification = (id: string) => {
+    const clearNotification = async (id: string) => {
         setNotifications(prev => prev.filter(notif => notif.id !== id));
+        // We might want to actually delete it or just hide it? 
+        // For now, let's just delete it from view or mark as dismissed if DB supports it.
+        // Assuming delete for 'clear'
+        await supabase
+            .from('notifications')
+            .delete()
+            .eq('id', id);
     };
 
     const unreadCount = notifications.filter(n => !n.read).length;
@@ -111,7 +130,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             value={{
                 notifications,
                 unreadCount,
-                addNotification,
                 markAsRead,
                 markAllAsRead,
                 clearNotification

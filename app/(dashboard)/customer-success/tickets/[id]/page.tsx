@@ -1,27 +1,25 @@
 "use client";
 
 import { useEffect, useState, useRef } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useParams } from 'next/navigation';
+import { usePermission } from '@/hooks/use-permission';
+import { AssigneeSelector } from '../components/AssigneeSelector';
+import { SLATimer } from '../components/SLATimer';
+import { EscalationButton } from '../components/EscalationButton';
 import {
     Send,
     Paperclip,
     MoreVertical,
-    User,
     Mail,
     Phone,
     MapPin,
     Clock,
     CheckCircle,
-    XCircle,
     AlertTriangle,
-    Tag,
     Lock,
     Copy,
-    FileText,
     BookOpen,
     Zap,
-    ArrowUpRight,
-    UserPlus,
     RefreshCw,
     MessageSquare
 } from 'lucide-react';
@@ -34,60 +32,95 @@ interface Message {
     internal?: boolean;
 }
 
+import { getTicketComments, addTicketComment } from '@/app/actions/tickets';
+import { createClient } from '@/lib/supabase/client';
+
+// ... (other imports)
+
 export default function TicketDetailsPage() {
-    const { id } = useParams();
-    const scrollRef = useRef<HTMLDivElement>(null);
-    const [status, setStatus] = useState('open');
-    const [assignee, setAssignee] = useState('Sarah (You)');
-    const [isInternal, setIsInternal] = useState(false);
+    const params = useParams();
+    const id = params?.id as string;
+    const { user } = usePermission();
+    const [messages, setMessages] = useState<Message[]>([]);
     const [replyText, setReplyText] = useState('');
+    const [isInternal, setIsInternal] = useState(false);
+    const [status, setStatus] = useState('open');
     const [channel, setChannel] = useState<'email' | 'whatsapp' | 'telegram'>('email');
+    const [escalationLevel, setEscalationLevel] = useState(0);
     const [isTyping, setIsTyping] = useState(false);
+    const scrollRef = useRef<HTMLDivElement>(null);
 
-    const [messages, setMessages] = useState<Message[]>([
-        { id: '1', sender: 'customer', text: 'Hi, I cannot access the React Advanced course material.', time: '10:00 AM' },
-        { id: '2', sender: 'system', text: 'Ticket created automatically via Email.', time: '10:01 AM' },
-        { id: '3', sender: 'agent', text: 'Hello Ahmed, let me check your enrollment status.', time: '10:15 AM' },
-        { id: '4', sender: 'agent', text: 'User verified. Checking permissions...', time: '10:16 AM', internal: true },
-    ]);
+    // Mock SLA Due Date (24h from now)
+    const slaDueAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    
+    // Check permission for assignment
+    const canAssignTickets = ['admin', 'manager'].includes(user?.role || '');
 
-    // Simulate Real-time Incoming Message
     useEffect(() => {
-        if (messages.length > 5) return; // Stop after simulation
-
-        const timer = setTimeout(() => {
-            setIsTyping(true);
-            setTimeout(() => {
-                setIsTyping(false);
-                setMessages(prev => [...prev, {
-                    id: Date.now().toString(),
-                    sender: 'customer',
-                    text: 'I just tried refreshing the page, it works now! Thanks.',
-                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                }]);
-            }, 3000);
-        }, 8000);
-        return () => clearTimeout(timer);
-    }, []);
-
-    // Scroll to bottom on new message
-    useEffect(() => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
-    }, [messages, isTyping]);
-
-    const handleSend = () => {
-        if (!replyText.trim()) return;
-        const newMsg: Message = {
-            id: Date.now().toString(),
-            sender: 'agent',
-            text: replyText,
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            internal: isInternal
+        if (!id) return;
+        
+        // 1. Initial Fetch (Strict MVP)
+        const fetchMessages = async () => {
+             const data = await getTicketComments(id as string);
+             const mapped: Message[] = data.map((m: any) => ({
+                 id: m.id,
+                 sender: m.sender_type,
+                 text: m.message_body || m.message || '', 
+                 time: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                 internal: m.is_internal,
+             }));
+             setMessages(mapped);
         };
-        setMessages([...messages, newMsg]);
-        setReplyText('');
+        fetchMessages();
+
+        // 2. Realtime Subscription
+        // TODO (Phase 2): Implement robust Realtime context with presence
+        // TODO (Phase 2): Handle Mentions (@agent) parsing
+        // TODO (Phase 2): Add Attachment support (storage integration)
+        const supabase = createClient();
+        const channel = supabase
+            .channel(`ticket-${id}`)
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'ticket_messages',
+                filter: `ticket_id=eq.${id}`
+            }, (payload) => {
+                const newMsg = payload.new as any;
+                // TODO: unify event and comment types in Phase 2
+                const mappedMsg: Message = {
+                    id: newMsg.id,
+                    sender: newMsg.sender_type as any,
+                    text: newMsg.message_body || newMsg.message || '',
+                    time: new Date(newMsg.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    internal: newMsg.is_internal
+                };
+                setMessages((prev) => [...prev, mappedMsg]);
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [id]);
+
+    // Scroll to bottom
+    useEffect(() => {
+        if (messages.length > 0) {
+            scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+        }
+    }, [messages.length]);
+
+    const handleSend = async () => {
+        if (!replyText.trim()) return;
+        
+        try {
+            await addTicketComment(id as string, replyText, isInternal);
+            setReplyText('');
+            // Optimistic update handled by Subscription or wait for revalidate
+        } catch (error) {
+            console.error('Failed to send message', error);
+        }
     };
 
     // --- QUICK ACTIONS ---
@@ -99,21 +132,6 @@ export default function TicketDetailsPage() {
             text: 'Ticket marked as Resolved. Survey sent to customer.',
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }]);
-    };
-
-    const escalateTicket = () => {
-        setAssignee('Manager (Pending)');
-        setMessages([...messages, {
-            id: Date.now().toString(),
-            sender: 'system',
-            text: 'Ticket Escalated to Management.',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }]);
-    };
-
-    const assignToMe = () => {
-        setAssignee('Sarah (You)');
-        // Toast notification would go here
     };
 
     // --- SHORTCUTS ---
@@ -168,14 +186,22 @@ export default function TicketDetailsPage() {
                         </div>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-center">
+                        <SLATimer slaDueAt={slaDueAt} status={status} />
+                        <EscalationButton
+                            ticketId={id as string}
+                            ticketTitle="Login Issue on Portal"
+                            currentEscalationLevel={escalationLevel}
+                            currentPriority="high"
+                            onEscalated={() => {
+                                setEscalationLevel(prev => prev + 1);
+                                console.log('Ticket escalated, refreshing...');
+                            }}
+                        />
                         {status !== 'resolved' ? (
                             <>
                                 <button onClick={markSolved} className="px-4 py-2 bg-green-600 text-white font-bold rounded-xl text-sm hover:bg-green-700 flex items-center gap-2 shadow-lg shadow-green-200 dark:shadow-none transition-all hover:scale-105 active:scale-95">
                                     <CheckCircle className="w-4 h-4" /> Mark Solved
-                                </button>
-                                <button onClick={escalateTicket} className="px-4 py-2 bg-gray-50 text-gray-700 font-bold rounded-xl text-sm hover:bg-gray-100 flex items-center gap-2 border border-gray-200 transition-all">
-                                    <ArrowUpRight className="w-4 h-4" /> Escalate
                                 </button>
                             </>
                         ) : (
@@ -325,13 +351,13 @@ export default function TicketDetailsPage() {
                             <div className="absolute -left-[21px] top-0 w-3 h-3 rounded-full bg-blue-500 border-2 border-white dark:border-gray-900"></div>
                             <p className="text-xs text-gray-500 mb-0.5">Today, 10:00 AM</p>
                             <p className="text-sm font-bold text-gray-800 dark:text-gray-200">Opened Ticket #1025</p>
-                            <p className="text-xs text-gray-400">"Login Issue on Portal"</p>
+                            <p className="text-xs text-gray-400">&ldquo;Login Issue on Portal&rdquo;</p>
                         </div>
                         <div className="relative">
                             <div className="absolute -left-[21px] top-0 w-3 h-3 rounded-full bg-green-500 border-2 border-white dark:border-gray-900"></div>
                             <p className="text-xs text-gray-500 mb-0.5">Yesterday</p>
                             <p className="text-sm font-bold text-gray-800 dark:text-gray-200">Purchase Course</p>
-                            <p className="text-xs text-gray-400">"Advanced React Patterns"</p>
+                            <p className="text-xs text-gray-400">&ldquo;Advanced React Patterns&rdquo;</p>
                         </div>
                         <div className="relative">
                             <div className="absolute -left-[21px] top-0 w-3 h-3 rounded-full bg-gray-300 border-2 border-white dark:border-gray-900"></div>
@@ -344,13 +370,18 @@ export default function TicketDetailsPage() {
                 {/* Ticket Meta */}
                 <div className="p-6 border-t border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-black/10">
                     <div className="space-y-4">
-                        <div className="flex justify-between items-center group cursor-pointer hover:bg-white p-2 rounded-lg transition-colors" onClick={assignToMe}>
-                            <span className="text-xs font-bold text-gray-500">Assignee</span>
-                            <div className="flex items-center gap-2 text-sm font-medium">
-                                <span className={assignee === 'Sarah (You)' ? 'text-blue-600' : 'text-gray-700'}>{assignee}</span>
-                                {assignee !== 'Sarah (You)' && <UserPlus className="w-4 h-4 text-gray-400 group-hover:text-blue-500" />}
-                            </div>
-                        </div>
+                        {canAssignTickets && (
+                            <AssigneeSelector
+                                ticketId={id as string}
+                                ticketTitle="Login Issue on Portal"
+                                currentStatus={status}
+                                currentAssignedTo={null}
+                                onAssignmentChange={() => {
+                                    // Refresh ticket data if needed
+                                    console.log('Assignment changed, refreshing...');
+                                }}
+                            />
+                        )}
 
                         <div>
                             <span className="block text-xs font-bold text-gray-500 mb-2">Contact Details</span>

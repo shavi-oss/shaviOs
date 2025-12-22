@@ -47,9 +47,9 @@ export async function createDeal(data: Partial<Deal> & { notes?: string }) {
         revalidatePath('/sales/deals');
         return { success: true, deal: newDeal };
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         logger.error('createDeal error', error);
-        return { success: false, error: error.message };
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
 }
 
@@ -60,63 +60,230 @@ export async function updateDealStage(dealId: string, newStage: string) {
     const supabase = await createClient();
     
     try {
-        // 1. Fetch current deal to get value and assignee
-        const { data: deal, error: fetchError } = await supabase
+        const { data: deal, error } = await supabase
             .from('deals')
-            .select('*')
+            .update({ stage: newStage, updated_at: new Date().toISOString() })
             .eq('id', dealId)
+            .select()
             .single();
 
-        if (fetchError || !deal) throw new Error('Deal not found');
+        if (error) throw error;
 
-        // 2. Update Deal
-        const { error: updateError } = await supabase
-            .from('deals')
-            .update({ 
-                stage: newStage,
-                // Set actual_close_date if won/lost
-                actual_close_date: ['closed_won', 'closed_lost'].includes(newStage) ? new Date().toISOString() : null
-            })
-            .eq('id', dealId);
-
-        if (updateError) throw updateError;
-
-        // 3. Workflow: Automated Commission on 'closed_won'
-        if (newStage === 'closed_won' && deal.assigned_to_id && deal.value > 0) {
-            await createCommissionForDeal(deal);
+        // If stage changed to closed_won, trigger commission calculation
+        if (newStage === 'closed_won' && deal) {
+            await calculateCommission(dealId, deal.value);
         }
 
         revalidatePath('/sales');
         revalidatePath('/sales/deals');
-        return { success: true };
+        revalidatePath('/sales/pipeline');
 
-    } catch (error: any) {
+        return { success: true, deal };
+    } catch (error: unknown) {
         logger.error('updateDealStage error', error);
-        return { success: false, error: error.message };
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
 }
 
 /**
- * PRIVATE: Create Commission Record
+ * Calculate Commission for a Won Deal
  */
-async function createCommissionForDeal(deal: Deal) {
+async function calculateCommission(dealId: string, dealValue: number | null) {
+    if (!dealValue) return;
+
     const supabase = await createClient();
-    const COMMISSION_RATE = 0.05; // 5% Standard
+    
+    try {
+        // Get deal owner
+        const { data: deal } = await supabase
+            .from('deals')
+            .select('assigned_to_id')
+            .eq('id', dealId)
+            .single();
 
-    const amount = (deal.value || 0) * COMMISSION_RATE;
+        if (!deal?.assigned_to_id) return;
 
-    const { error } = await supabase.from('commissions').insert({
-        employee_id: deal.assigned_to_id!, // Verified not null before calling
-        deal_id: deal.id,
-        amount: amount,
-        currency: deal.currency || 'EGP',
-        type: 'deal_commission',
-        status: 'pending',
-        notes: `Automated commission for deal: ${deal.title}`
-    });
+        // Create commission record (adjust commission rate as needed)
+        const commissionRate = 0.05; // 5%
+        const commissionAmount = dealValue * commissionRate;
 
-    if (error) {
-        logger.error('Failed to create commission', error);
-        // Don't fail the deal update, but log critical error
+        await supabase.from('commissions').insert({
+            employee_id: deal.assigned_to_id,
+            deal_id: dealId,
+            amount: commissionAmount,
+            status: 'pending'
+        });
+
+    } catch (error: unknown) {
+        logger.error('calculateCommission error', error);
+    }
+}
+
+/**
+ * Get Sales Dashboard Statistics (Server Action)
+ * Replaces client-side useEffect fetching
+ */
+export async function getSalesStats() {
+    const supabase = await createClient();
+    
+    try {
+        // Get deals
+        const { data: deals, error: dealsError } = await supabase
+            .from('deals')
+            .select('*');
+        
+        if (dealsError) throw dealsError;
+        
+        // Calculate stats
+        const totalDeals = deals?.length || 0;
+        const wonDeals = deals?.filter(d => d.stage === 'closed_won').length || 0;
+        const activeDeals = deals?.filter(d => !['closed_won', 'closed_lost'].includes(d.stage || '')).length || 0;
+        const totalValue = deals?.reduce((sum, d) => sum + Number(d.value || 0), 0) || 0;
+        const wonValue = deals?.filter(d => d.stage === 'closed_won').reduce((sum, d) => sum + Number(d.value || 0), 0) || 0;
+        
+        return {
+            totalDeals,
+            wonDeals,
+            activeDeals,
+            totalValue,
+            wonValue,
+            conversionRate: totalDeals > 0 ? Math.round((wonDeals / totalDeals) * 100) : 0
+        };
+    } catch (error: unknown) {
+        logger.error('getSalesStats error', error);
+        return {
+            totalDeals: 0,
+            wonDeals: 0,
+            activeDeals: 0,
+            totalValue: 0,
+            wonValue: 0,
+            conversionRate: 0
+        };
+    }
+}
+
+/**
+ * Get Deals with Optional Filters (Server Action)
+ * Replaces client-side supabase.from('deals') calls
+ */
+export async function getDeals(stageFilter: string = 'all') {
+    const supabase = await createClient();
+    
+    try {
+        let query = supabase
+            .from('deals')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (stageFilter !== 'all') {
+            query = query.eq('stage', stageFilter);
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+            logger.error('getDeals error', error);
+            return [];
+        }
+
+        return data || [];
+    } catch (error: unknown) {
+        logger.error('getDeals error', error);
+        return [];
+    }
+}
+
+/**
+ * Get Deals Pipeline Data
+ * Returns deals organized by stage with metrics
+ */
+export async function getDealsPipeline() {
+    const supabase = await createClient();
+    
+    try {
+        // Fetch all deals
+        const { data: deals, error } = await supabase
+            .from('deals')
+            .select('*')
+            .order('expected_close_date', { ascending: true });
+        
+        if (error) throw error;
+        
+        // Define pipeline stages
+        const stages = [
+            { name: 'lead', label: 'Lead', color: 'bg-gray-100' },
+            { name: 'contacted', label: 'Contacted', color: 'bg-blue-100' },
+            { name: 'proposal', label: 'Proposal', color: 'bg-yellow-100' },
+            { name: 'negotiation', label: 'Negotiation', color: 'bg-orange-100' },
+            { name: 'closed_won', label: 'Won', color: 'bg-green-100' },
+            { name: 'closed_lost', label: 'Lost', color: 'bg-red-100' },
+        ];
+        
+        // Calculate metrics per stage
+        const pipelineStages = stages.map(stage => {
+            const stageDeals = deals?.filter(d => d.stage === stage.name) || [];
+            const stageValue = stageDeals.reduce((sum, d) => sum + Number(d.value || 0), 0);
+            
+            return {
+                ...stage,
+                deals: stageDeals,
+                count: stageDeals.length,
+                value: stageValue,
+            };
+        });
+        
+        // Calculate overall metrics
+        const totalDeals = deals?.length || 0;
+        const totalValue = deals?.reduce((sum, d) => sum + Number(d.value || 0), 0) || 0;
+        
+        // Pipeline value (active stages only)
+        const pipelineValue = deals
+            ?.filter(d => !['closed_won', 'closed_lost'].includes(d.stage || ''))
+            .reduce((sum, d) => sum + Number(d.value || 0), 0) || 0;
+        
+        // Expected revenue (proposal + negotiation)
+        const expectedRevenue = deals
+            ?.filter(d => ['proposal', 'negotiation'].includes(d.stage || ''))
+            .reduce((sum, d) => sum + Number(d.value || 0), 0) || 0;
+        
+        // Conversion rate
+        const wonDeals = deals?.filter(d => d.stage === 'closed_won').length || 0;
+        const lostDeals = deals?.filter(d => d.stage === 'closed_lost').length || 0;
+        const completedDeals = wonDeals + lostDeals;
+        const conversionRate = completedDeals > 0 
+            ? ((wonDeals / completedDeals) * 100).toFixed(1) 
+            : '0';
+        
+        // Average deal size
+        const avgDealSize = totalDeals > 0 ? totalValue / totalDeals : 0;
+        
+        return {
+            stages: pipelineStages,
+            metrics: {
+                total: totalValue,
+                pipeline: pipelineValue,
+                expected: expectedRevenue,
+                conversionRate,
+                avgDealSize,
+                totalDeals,
+                wonDeals,
+                lostDeals,
+            },
+        };
+    } catch (error: unknown) {
+        logger.error('getDealsPipeline error', error);
+        return {
+            stages: [],
+            metrics: {
+                total: 0,
+                pipeline: 0,
+                expected: 0,
+                conversionRate: '0',
+                avgDealSize: 0,
+                totalDeals: 0,
+                wonDeals: 0,
+                lostDeals: 0,
+            },
+        };
     }
 }

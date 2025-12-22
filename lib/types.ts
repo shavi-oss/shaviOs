@@ -1,16 +1,6 @@
 // Shavi Academy OS - Type Definitions
 
-export type UserRole =
-    | "admin"
-    | "developer"
-    | "manager"
-    | "marketing"
-    | "sales"
-    | "customer_success"
-    | "trainer"
-    | "operations"
-    | "finance"
-    | "hr";
+// UserRole moved to @/lib/user.types.ts
 
 export type LeadStatus = "new" | "contacted" | "qualified" | "converted" | "lost";
 export type LeadTemperature = "hot" | "warm" | "cold";
@@ -18,18 +8,7 @@ export type StudentStatus = "active" | "graduated" | "dropped" | "suspended";
 export type TaskStatus = "pending" | "in_progress" | "completed" | "cancelled";
 export type TaskPriority = "low" | "medium" | "high" | "urgent";
 
-export interface User {
-    id: string;
-    email: string;
-    full_name: string;
-    role: UserRole;
-    department?: string;
-    status: string;
-    avatar_url?: string;
-    phone?: string;
-    created_at: string;
-    updated_at: string;
-}
+// User moved to @/lib/user.types.ts
 
 export interface Lead {
     id: string;

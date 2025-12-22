@@ -23,7 +23,7 @@ export default function LoginPage() {
 
         try {
             // Sign in with Supabase
-            const { data, error: signInError } = await supabase.auth.signInWithPassword({
+            const { error: signInError } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
@@ -37,17 +37,11 @@ export default function LoginPage() {
             // Success! Redirect to dashboard
             router.push("/");
             router.refresh();
-        } catch (err) {
+        } catch {
             setError("حدث خطأ أثناء تسجيل الدخول");
             setIsLoading(false);
         }
     };
-
-    const demoAccounts = [
-        { email: "admin@shavi.com", password: "admin123", role: "مدير النظام" },
-        { email: "sales@shavi.com", password: "sales123", role: "قسم المبيعات" },
-        { email: "marketing@shavi.com", password: "marketing123", role: "قسم التسويق" },
-    ];
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -65,7 +59,7 @@ export default function LoginPage() {
                     <form onSubmit={handleSubmit} className="space-y-4">
                         {error && (
                             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
-                                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                                <AlertCircle className="w-5 h-5 shrink-0" />
                                 <p className="text-sm">{error}</p>
                             </div>
                         )}
@@ -108,31 +102,6 @@ export default function LoginPage() {
                             {isLoading ? "جاري تسجيل الدخول..." : "تسجيل الدخول"}
                         </Button>
                     </form>
-
-                    {/* Demo Accounts */}
-                    <div className="mt-6 pt-6 border-t">
-                        <p className="text-sm text-muted-foreground text-center mb-3">
-                            حسابات تجريبية للاختبار:
-                        </p>
-                        <div className="space-y-2">
-                            {demoAccounts.map((account, index) => (
-                                <button
-                                    key={index}
-                                    type="button"
-                                    onClick={() => {
-                                        setEmail(account.email);
-                                        setPassword(account.password);
-                                    }}
-                                    className="w-full text-left p-3 rounded-lg border hover:bg-accent transition-colors text-sm"
-                                >
-                                    <div className="font-medium">{account.role}</div>
-                                    <div className="text-xs text-muted-foreground">
-                                        {account.email}
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
                 </CardContent>
             </Card>
         </div>

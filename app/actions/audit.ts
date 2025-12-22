@@ -1,7 +1,7 @@
 'use server';
 
 import { createClient } from '@supabase/supabase-js';
-import { cookies } from 'next/headers';
+// cookies import removed
 
 // Create a Supabase client with the SERVICE ROLE key to bypass RLS
 // This is strictly for Admin/System use (Audit Logs)
@@ -16,11 +16,16 @@ const supabaseAdmin = createClient(
     }
 );
 
+import { getSession } from '@/lib/auth';
+
+// ... (supabaseAdmin def)
+
 export async function getWebhookLogs() {
     try {
-        // Optional: Check if user is authenticated at all (Basic protection)
-        // const cookieStore = cookies();
-        // ... (User auth check logic can go here if needed, but for now we assume the page is protected by middleware)
+        const session = await getSession();
+        if (!session || !session.user || (session.user.role !== 'admin' && session.user.role !== 'developer')) {
+            return { success: false, error: 'Unauthorized: Requires admin or developer role' };
+        }
 
         const { data, error } = await supabaseAdmin
             .from('audit_logs')
@@ -35,8 +40,8 @@ export async function getWebhookLogs() {
         }
 
         return { success: true, data };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Unexpected error in getWebhookLogs:', error);
-        return { success: false, error: error.message };
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
 }

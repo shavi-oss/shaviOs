@@ -52,21 +52,27 @@ export default function MarketingCampaignsPage() {
             
             // Map DB data to UI interface if needed, or just use as is if compatible
             // Assuming DB fields match Campaign interface mostly, but handling nulls
-            const mappedCampaigns: Campaign[] = data.map((c: any) => ({
-                id: c.id,
-                name: c.name,
-                type: c.type,
-                status: c.status,
-                budget: c.budget || 0,
-                spent: c.spent || 0,
-                impressions: c.impressions || 0,
-                clicks: c.clicks || 0,
-                conversions: c.conversions || 0,
-                start_date: c.start_date,
-                end_date: c.end_date,
-                ctr: c.ctr || 0,
-                roi: c.roas || 0 // roas vs roi
-            }));
+            const mappedCampaigns: Campaign[] = (data || []).map((c: any) => {
+                const typeVal = c.type as string;
+                const validTypes: Campaign['type'][] = ['email', 'social', 'ads', 'content'];
+                const finalType = validTypes.includes(typeVal as any) ? (typeVal as Campaign['type']) : 'email';
+
+                return {
+                    id: c.id,
+                    name: c.name,
+                    type: finalType,
+                    status: c.status,
+                    budget: c.budget || 0,
+                    spent: c.spent || 0,
+                    impressions: c.impressions || 0,
+                    clicks: c.clicks || 0,
+                    conversions: c.conversions || 0,
+                    start_date: c.start_date,
+                    end_date: c.end_date,
+                    ctr: c.ctr || 0,
+                    roi: c.roas || 0
+                };
+            });
 
             setCampaigns(mappedCampaigns);
         } catch (err) {

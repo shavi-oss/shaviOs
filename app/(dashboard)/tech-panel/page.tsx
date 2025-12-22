@@ -180,7 +180,16 @@ export default function TechPanelDashboard() {
     );
 }
 
-function MetricCard({ title, value, trend, icon: Icon, color, trendColor }: any) {
+interface MetricCardProps {
+    title: string;
+    value: string;
+    trend: string;
+    icon: React.ElementType;
+    color: string;
+    trendColor?: string;
+}
+
+function MetricCard({ title, value, trend, icon: Icon, color, trendColor }: MetricCardProps) {
     return (
         <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden">
             <div className="flex justify-between items-start mb-2">

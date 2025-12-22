@@ -1,7 +1,4 @@
-"use client";
-
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { getMyTickets } from '@/app/actions/tickets';
 import {
     Clock,
     AlertTriangle,
@@ -12,55 +9,58 @@ import {
     MessageSquare,
     Zap
 } from 'lucide-react';
+import Link from 'next/link';
 
-interface Ticket {
-    id: string;
-    subject: string;
-    status: string;
-    priority: 'low' | 'medium' | 'high' | 'urgent';
-    customer: string;
-    created_at: string;
-    sla_due: string; // ISO String
-    channel: 'email' | 'whatsapp' | 'telegram';
-}
+type Ticket = Awaited<ReturnType<typeof getMyTickets>>[0];
 
-export default function MyQueuePage() {
-    const router = useRouter();
-    const [tickets, setTickets] = useState<Ticket[]>([]);
+export default async function MyQueuePage() {
+    // Server-side data fetching
+    const tickets = await getMyTickets();
 
-    useEffect(() => {
-        // Mock Data for My Queue
-        // In real app, fetch where assigned_to = me
-        setTickets([
-            { id: '1025', subject: 'Login Issue on Portal', status: 'open', priority: 'high', customer: 'Ahmed Ali', created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(), sla_due: new Date(Date.now() + 1000 * 60 * 90).toISOString(), channel: 'email' },
-            { id: '1024', subject: 'Payment Failed (Urgent)', status: 'open', priority: 'urgent', customer: 'Sarah Khan', created_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(), sla_due: new Date(Date.now() - 1000 * 60 * 10).toISOString(), channel: 'whatsapp' }, // Breach
-            { id: '1021', subject: 'Course Certificate', status: 'pending', priority: 'medium', customer: 'Mohamed E.', created_at: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), sla_due: new Date(Date.now() + 1000 * 60 * 60 * 19).toISOString(), channel: 'telegram' },
-            { id: '1018', subject: 'Video Player Bug', status: 'open', priority: 'medium', customer: 'Laila M.', created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), sla_due: new Date(Date.now() + 1000 * 60 * 60 * 22).toISOString(), channel: 'email' },
-        ]);
-    }, []);
+    const getSLAStatus = (createdAt: string) => {
+        // Calculate SLA based on created time
+        // For now, simple logic: tickets older than 2 hours are overdue
+        const created = new Date(createdAt);
+        const now = new Date();
+        const diff = now.getTime() - created.getTime();
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
 
-    const getSLAStatus = (due: string) => {
-        const diff = new Date(due).getTime() - Date.now();
-        const minutes = Math.floor(diff / 60000);
-
-        if (minutes < 0) return { type: 'breach', label: `Overdue by ${Math.abs(minutes)}m`, color: 'bg-red-100 text-red-700 border-red-200' };
-        if (minutes < 60) return { type: 'warning', label: `${minutes}m left`, color: 'bg-orange-100 text-orange-700 border-orange-200' };
-        return { type: 'safe', label: `${Math.floor(minutes / 60)}h ${minutes % 60}m`, color: 'bg-green-100 text-green-700 border-green-200' };
+        if (hours >= 2) {
+            return {
+                type: 'breach',
+                label: `Overdue by ${hours}h ${minutes}m`,
+                color: 'bg-red-100 text-red-700 border-red-200'
+            };
+        } else if (hours >= 1) {
+            return {
+                type: 'warning',
+                label: `${2 - hours}h ${60 - minutes}m left`,
+                color: 'bg-orange-100 text-orange-700 border-orange-200'
+            };
+        }
+        return {
+            type: 'safe',
+            label: `${2 - hours}h ${60 - minutes}m left`,
+            color: 'bg-green-100 text-green-700 border-green-200'
+        };
     };
 
-    const getPriorityIcon = (p: string) => {
-        if (p === 'urgent') return <Zap className="w-4 h-4 text-red-500 fill-red-500" />;
-        if (p === 'high') return <Zap className="w-4 h-4 text-orange-500" />;
+    const getPriorityIcon = (priority: string) => {
+        if (priority === 'urgent') return <Zap className="w-4 h-4 text-red-500 fill-red-500" />;
+        if (priority === 'high') return <Zap className="w-4 h-4 text-orange-500" />;
         return <div className="w-2 h-2 rounded-full bg-blue-500"></div>;
     };
 
-    const getChannelIcon = (c: string) => {
-        switch (c) {
-            case 'whatsapp': return <span className="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded font-bold">WA</span>;
-            case 'telegram': return <span className="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0.5 rounded font-bold">TG</span>;
-            default: return <span className="bg-gray-100 text-gray-700 text-[10px] px-1.5 py-0.5 rounded font-bold">Mail</span>;
-        }
-    }
+    const breachCount = tickets.filter(t => {
+        const sla = getSLAStatus(t.created_at || '');
+        return sla.type === 'breach';
+    }).length;
+
+    const warningCount = tickets.filter(t => {
+        const sla = getSLAStatus(t.created_at || '');
+        return sla.type === 'warning';
+    }).length;
 
     return (
         <div className="p-6">
@@ -73,20 +73,30 @@ export default function MyQueuePage() {
                     <p className="text-gray-500 text-sm mt-1">Your personal prioritized task list.</p>
                 </div>
                 <div className="flex gap-2">
-                    <div className="px-4 py-2 bg-red-50 text-red-700 rounded-lg flex items-center gap-2 border border-red-100 font-bold text-sm">
-                        <AlertTriangle className="w-4 h-4" /> 1 Breach
-                    </div>
-                    <div className="px-4 py-2 bg-orange-50 text-orange-700 rounded-lg flex items-center gap-2 border border-orange-100 font-bold text-sm">
-                        <Clock className="w-4 h-4" /> 2 Warning
-                    </div>
+                    {breachCount > 0 && (
+                        <div className="px-4 py-2 bg-red-50 text-red-700 rounded-lg flex items-center gap-2 border border-red-100 font-bold text-sm">
+                            <AlertTriangle className="w-4 h-4" /> {breachCount} Breach
+                        </div>
+                    )}
+                    {warningCount > 0 && (
+                        <div className="px-4 py-2 bg-orange-50 text-orange-700 rounded-lg flex items-center gap-2 border border-orange-100 font-bold text-sm">
+                            <Clock className="w-4 h-4" /> {warningCount} Warning
+                        </div>
+                    )}
                 </div>
             </div>
 
             {/* Filter Bar */}
             <div className="flex gap-4 mb-6">
-                <button className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-gray-200 dark:shadow-none">All Assigned (4)</button>
-                <button className="bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 dark:border-gray-700 hover:border-red-300 hover:text-red-500">Urgent (1)</button>
-                <button className="bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 dark:border-gray-700">Pending (1)</button>
+                <button className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-gray-200 dark:shadow-none">
+                    All Assigned ({tickets.length})
+                </button>
+                <button className="bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 dark:border-gray-700 hover:border-red-300 hover:text-red-500">
+                    Urgent ({tickets.filter(t => t.priority === 'urgent').length})
+                </button>
+                <button className="bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 dark:border-gray-700">
+                    Pending ({tickets.filter(t => t.status === 'in_progress').length})
+                </button>
 
                 <div className="flex-1"></div>
 
@@ -110,22 +120,24 @@ export default function MyQueuePage() {
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                         {tickets.map(ticket => {
-                            const sla = getSLAStatus(ticket.sla_due);
+                            const sla = getSLAStatus(ticket.created_at || '');
                             return (
                                 <tr
                                     key={ticket.id}
-                                    onClick={() => router.push(`/customer-success/tickets/${ticket.id}`)}
                                     className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors ${sla.type === 'breach' ? 'bg-red-50/30' : ''}`}
                                 >
                                     <td className="px-6 py-4">
-                                        <div title={ticket.priority}>{getPriorityIcon(ticket.priority)}</div>
+                                        <div title={ticket.priority || 'medium'}>{getPriorityIcon(ticket.priority || 'medium')}</div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <div className="flex items-center gap-2">
-                                            {getChannelIcon(ticket.channel)}
-                                            <span className="font-bold text-gray-900 dark:text-white">{ticket.subject}</span>
-                                        </div>
-                                        <p className="text-xs text-gray-400 mt-1 pl-8">#{ticket.id} • Opened {new Date(ticket.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                        <Link href={`/customer-success/tickets/${ticket.id}`} className="flex items-center gap-2">
+                                            <span className="font-bold text-gray-900 dark:text-white hover:text-primary transition-colors">
+                                                {ticket.title}
+                                            </span>
+                                        </Link>
+                                        <p className="text-xs text-gray-400 mt-1">
+                                            #{ticket.id.slice(0, 8)} • Opened {new Date(ticket.created_at || '').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-full ${ticket.status === 'open' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>
@@ -139,7 +151,7 @@ export default function MyQueuePage() {
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        {ticket.customer}
+                                        {ticket.student_name || 'Unknown'}
                                     </td>
                                     <td className="px-6 py-4">
                                         <button className="p-2 hover:bg-gray-100 rounded-full text-gray-400">
@@ -153,7 +165,7 @@ export default function MyQueuePage() {
                 </table>
             </div>
 
-            {/* Empty State / Motivation */}
+            {/* Empty State */}
             {tickets.length === 0 && (
                 <div className="text-center py-20">
                     <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">

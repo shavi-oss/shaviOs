@@ -63,7 +63,7 @@ export default function DashboardLandingPage() {
             href: "/customer-success",
             color: "bg-blue-600",
             bg: "bg-blue-50 dark:bg-blue-900/20",
-            role: ['admin', 'manager', 'sales']
+            role: ['admin', 'manager', 'sales', 'customer_success']
         },
         {
             title: "Operations",

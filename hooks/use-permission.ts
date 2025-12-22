@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@/contexts/auth-context';
-import { UserRole } from '@/lib/types';
+import { UserRole } from '@/lib/user.types';
 
 export function usePermission() {
     const { user, loading } = useAuth();

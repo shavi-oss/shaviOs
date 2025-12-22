@@ -44,11 +44,16 @@ export default function NewExpensePage() {
             const formData = new FormData();
             formData.append('category', data.category);
             if (data.subcategory) formData.append('subcategory', data.subcategory);
-            formData.append('amount', data.amount.toString());
-            formData.append('currency', data.currency || 'EGP');
+            formData.append('amount', String(data.amount));
+            // Ensure currency is strictly string
+            formData.append('currency', data.currency ?? 'EGP');
             formData.append('description', data.description);
             formData.append('date', new Date(data.expense_date).toISOString());
-            if (data.receipt_url) formData.append('receipt_url', data.receipt_url);
+            
+            // Explicit check for non-empty string URL
+            if (data.receipt_url && typeof data.receipt_url === 'string') {
+                formData.append('receipt_url', data.receipt_url);
+            }
 
             const result = await createExpense(formData);
 

@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { getSession } from '@/lib/auth';
 
 const createCampaignSchema = z.object({
   name: z.string().min(3, 'Name must be at least 3 characters'),
@@ -13,14 +14,25 @@ const createCampaignSchema = z.object({
   status: z.enum(['active', 'paused', 'draft']).default('draft'),
 });
 
-export async function createCampaign(prevState: any, formData: FormData) {
-    const supabase = await createClient();
-    
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+import { Database } from '@/lib/database.types';
+
+type Campaign = Database['public']['Tables']['campaigns']['Row'];
+
+export type ActionState = {
+    success: boolean;
+    message: string;
+    errors?: Record<string, string[]>;
+    campaign?: Campaign;
+};
+
+export async function createCampaign(prevState: ActionState | null, formData: FormData) {
+    // Get current session with profile
+    const session = await getSession();
+    if (!session || !session.user) {
         return { success: false, message: 'Authentication required' };
     }
+    const user = session.user;
+    const supabase = await createClient();
 
     // Parse and validate data
     const validatedFields = createCampaignSchema.safeParse({

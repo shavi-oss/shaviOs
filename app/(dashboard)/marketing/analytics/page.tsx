@@ -22,7 +22,15 @@ import {
     Calendar
 } from 'lucide-react';
 
-const KPICard = ({ title, value, subtext, icon: Icon, trend }: any) => (
+interface KPICardProps {
+    title: string;
+    value: string;
+    subtext: string;
+    icon: React.ElementType;
+    trend?: number;
+}
+
+const KPICard = ({ title, value, subtext, icon: Icon, trend }: KPICardProps) => (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="flex justify-between items-start mb-4">
             <div className="p-3 bg-primary/10 rounded-lg">

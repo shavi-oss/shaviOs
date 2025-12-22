@@ -23,7 +23,14 @@ interface Deal {
     created_at: string;
 }
 
-const stages = [
+interface Stage {
+    id: string;
+    name: string;
+    nameEn: string;
+    color: string;
+}
+
+const stages: Stage[] = [
     { id: 'lead', name: 'عميل محتمل', nameEn: 'Lead', color: 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300' },
     { id: 'contacted', name: 'تم التواصل', nameEn: 'Contacted', color: 'bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300' },
     { id: 'proposal', name: 'عرض سعر', nameEn: 'Proposal', color: 'bg-purple-100 dark:bg-purple-900/30 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300' },
@@ -231,7 +238,7 @@ export default function SalesPipelinePage() {
     );
 }
 
-function KanbanColumn({ stage, deals, totalValue }: { stage: any; deals: Deal[]; totalValue: number }) {
+function KanbanColumn({ stage, deals, totalValue }: { stage: Stage; deals: Deal[]; totalValue: number }) {
     const { useDroppable } = require('@dnd-kit/core');
     const { setNodeRef } = useDroppable({ id: stage.id });
 

@@ -44,7 +44,7 @@ interface Metric {
     trend: string;
     color: string;
     bg: string;
-    icon: any;
+    icon: React.ElementType;
 }
 
 export default function AgentPerformancePage() {

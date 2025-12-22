@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { User, UserRole } from "./types";
+import { User, UserRole } from "./user.types";
 
 export interface SessionData {
     user: User;
@@ -88,7 +88,7 @@ export async function verifyCredentials(email: string, password: string): Promis
  * Create a session for the authenticated user
  * Session is managed by Supabase Auth automatically
  */
-export async function createSession(user: User): Promise<void> {
+export async function createSession(_user: User): Promise<void> {
     // Session is already created by Supabase Auth during signInWithPassword
     // This function exists for API compatibility but doesn't need to do anything
     // as Supabase handles session management automatically

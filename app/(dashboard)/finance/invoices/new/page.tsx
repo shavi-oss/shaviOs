@@ -6,7 +6,7 @@ import {
     ArrowLeft,
     Plus,
     Trash2,
-    Save,
+
     Send
 } from 'lucide-react';
 import Link from 'next/link';
@@ -23,7 +23,7 @@ export default function CreateInvoicePage() {
     const router = useRouter();
     const [step, setStep] = useState(1);
 
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState(() => ({
         customer_id: '',
         customer_name: '',
         billing_address: '',
@@ -32,7 +32,7 @@ export default function CreateInvoicePage() {
         due_date: '',
         notes: '',
         invoice_number: `INV-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`
-    });
+    }));
 
     const [items, setItems] = useState<InvoiceItem[]>([
         { description: '', quantity: 1, unit_price: 0, tax_rate: 14, total: 0 }
@@ -46,7 +46,7 @@ export default function CreateInvoicePage() {
         setItems(items.filter((_, i) => i !== index));
     };
 
-    const updateItem = (index: number, field: keyof InvoiceItem, value: any) => {
+    const updateItem = (index: number, field: keyof InvoiceItem, value: string | number) => {
         const newItems = [...items];
         newItems[index] = { ...newItems[index], [field]: value };
 
